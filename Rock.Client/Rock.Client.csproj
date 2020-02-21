@@ -121,6 +121,7 @@
     <Compile Include="CodeGenerated\Device.cs" />
     <Compile Include="CodeGenerated\Document.cs" />
     <Compile Include="CodeGenerated\DocumentType.cs" />
+    <Compile Include="CodeGenerated\EntityCampusFilter.cs" />
     <Compile Include="CodeGenerated\EntitySet.cs" />
     <Compile Include="CodeGenerated\EntitySetItem.cs" />
     <Compile Include="CodeGenerated\EntityType.cs" />
@@ -238,6 +239,8 @@
     <Compile Include="CodeGenerated\RegistrationTemplateFeeItem.cs" />
     <Compile Include="CodeGenerated\RegistrationTemplateForm.cs" />
     <Compile Include="CodeGenerated\RegistrationTemplateFormField.cs" />
+    <Compile Include="CodeGenerated\RegistrationTemplatePlacement.cs" />
+    <Compile Include="CodeGenerated\RelatedEntity.cs" />
     <Compile Include="CodeGenerated\Report.cs" />
     <Compile Include="CodeGenerated\ReportField.cs" />
     <Compile Include="CodeGenerated\RestAction.cs" />

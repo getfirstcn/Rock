@@ -52,6 +52,11 @@ namespace Rock.SystemGuid
         public const string BLOCK = "D89555CA-9AE4-4D62-8AF1-E5E463C1EF65";
 
         /// <summary>
+        /// The campus
+        /// </summary>
+        public const string CAMPUS = "00096BED-9587-415E-8AD4-4E076AE8FBF0";
+
+        /// <summary>
         /// The checkr provider
         /// </summary>
         public const string CHECKR_PROVIDER = "8D9DE88A-C649-47B2-BA5C-92A24F60AE61";
@@ -253,6 +258,11 @@ namespace Rock.SystemGuid
         public const string PERSON_ALIAS = "90F5E87B-F0D5-4617-8AE9-EB57E673F36F";
 
         /// <summary>
+        /// The guid for the Rock.Workflow.Action.PersonGetCampusTeamMember entity
+        /// </summary>
+        public const string PERSON_GET_CAMPUS_TEAM_MEMBER = "6A4F7FEC-3D49-4A31-882C-2D10DB84231E";
+
+        /// <summary>
         /// The guid for the Rock.Model.PersonSignal entity
         /// </summary>
         public const string PERSON_SIGNAL = "0FFF77A1-E92D-4A05-8B36-1D2B6D46660F";
@@ -298,6 +308,11 @@ namespace Rock.SystemGuid
         public const string STORAGE_PROVIDER_DATABASE = "0AA42802-04FD-4AEC-B011-FEB127FC85CD";
 
         /// <summary>
+        /// The guid for the system communication entity
+        /// </summary>
+        public const string SYSTEM_COMMUNICATION = "D0CAD7C0-10FE-41EF-B89D-E6F0D22456C4";
+
+        /// <summary>
         /// The guid for the filesystem storage provider entity
         /// </summary>
         public const string STORAGE_PROVIDER_FILESYSTEM = "A97B6002-454E-4890-B529-B99F8F2F376A";
@@ -306,6 +321,11 @@ namespace Rock.SystemGuid
         /// The guid for the Rock.Model.WorkflowType entity
         /// </summary>
         public const string WORKFLOW_TYPE = "C9F3C4A5-1526-474D-803F-D6C7A45CBBAE";
+
+        /// <summary>
+        /// The guid for the Rock.Model.WorkflowType entity
+        /// </summary>
+        public const string WORKFLOW_ACTION_TYPE = "23E3273A-B137-48A3-9AFF-C8DC832DDCA6";
 
         /// <summary>
         /// The guid for the Test Financial Gateway entity type
@@ -321,5 +341,10 @@ namespace Rock.SystemGuid
         /// The guid for the Step program entity
         /// </summary>
         public const string STEP_PROGRAM = "E89F9528-A74E-41B7-8B65-B56B4CE7A122";
+
+        /// <summary>
+        /// The MyWell financial gateway
+        /// </summary>
+        public const string MYWELL_FINANCIAL_GATEWAY = "E81ED723-E807-4BDE-ADF1-AB9686241637";
     }
 }
