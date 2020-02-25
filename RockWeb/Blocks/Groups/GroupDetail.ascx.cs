@@ -61,10 +61,10 @@ namespace RockWeb.Blocks.Groups
 
     [LinkedPage( "Group Scheduler Page",
         Key = "GroupSchedulerPage",
-        Description ="The page to schedule this group.",
+        Description = "The page to schedule this group.",
         IsRequired = false,
         DefaultValue = "1815D8C6-7C4A-4C05-A810-CF23BA937477,D0F198E2-6111-4EC1-8D1D-55AC10E28D04",
-        Order = 16)]
+        Order = 16 )]
 
     [BooleanField( "Enable Group Tags", "If enabled, the tags will be shown.", true, "", 17 )]
     public partial class GroupDetail : RockBlock, IDetailBlock
@@ -699,7 +699,7 @@ namespace RockWeb.Blocks.Groups
                             || exs.MaximumCapacity != s.MaximumCapacity ) ).Any() );
 
                 // Handles case where group location schedules exisited without group location schedule configs
-                var newGroupLocationScheduleConfigs = existingGroupLocationConfigs.Count() > 0 
+                var newGroupLocationScheduleConfigs = existingGroupLocationConfigs.Count() > 0
                     ? groupLocationState.GroupLocationScheduleConfigs
                     .Where( s => addedSchedules.Contains( s.ScheduleId ) ).ToList()
                     : groupLocationState.GroupLocationScheduleConfigs;
@@ -1112,14 +1112,8 @@ namespace RockWeb.Blocks.Groups
                     rockContext.SaveChanges();
 
                     newGroup.LoadAttributes( rockContext );
-                    if ( group.Attributes != null && group.Attributes.Any() )
-                    {
-                        foreach ( var attributeKey in group.Attributes.Select( a => a.Key ) )
-                        {
-                            string value = group.GetAttributeValue( attributeKey );
-                            newGroup.SetAttributeValue( attributeKey, value );
-                        }
-                    }
+
+                    Rock.Attribute.Helper.CopyAttributes( group, newGroup );
 
                     newGroup.SaveAttributeValues( rockContext );
 
@@ -1589,7 +1583,7 @@ namespace RockWeb.Blocks.Groups
             cpCampus.SelectedCampusId = group.CampusId;
 
             GroupRequirementsState = group.GetGroupRequirements( rockContext ).Where( a => a.GroupId.HasValue ).ToList();
-            GroupLocationsState = group.GroupLocations.OrderBy(a => a.Order).ThenBy(a => a.Location.Name).ToList();
+            GroupLocationsState = group.GroupLocations.OrderBy( a => a.Order ).ThenBy( a => a.Location.Name ).ToList();
 
             var groupTypeCache = CurrentGroupTypeCache;
             BindAdministratorPerson( group, groupTypeCache );
@@ -1723,23 +1717,23 @@ namespace RockWeb.Blocks.Groups
             spSchedules.Visible = groupType != null && ( groupType.EnableLocationSchedules ?? false );
 
 
-                if ( groupType != null && groupType.LocationSelectionMode != GroupLocationPickerMode.None )
-                {
-                    wpMeetingDetails.Visible = true;
-                    gGroupLocations.Visible = true;
-                    BindGroupLocationsGrid();
-                }
-                else
-                {
-                    wpMeetingDetails.Visible = pnlSchedule.Visible;
-                    gGroupLocations.Visible = false;
-                }
+            if ( groupType != null && groupType.LocationSelectionMode != GroupLocationPickerMode.None )
+            {
+                wpMeetingDetails.Visible = true;
+                gGroupLocations.Visible = true;
+                BindGroupLocationsGrid();
+            }
+            else
+            {
+                wpMeetingDetails.Visible = pnlSchedule.Visible;
+                gGroupLocations.Visible = false;
+            }
 
-                gGroupLocations.Columns[2].Visible = groupType != null && ( groupType.EnableLocationSchedules ?? false );
-                spSchedules.Visible = groupType != null && ( groupType.EnableLocationSchedules ?? false );
+            gGroupLocations.Columns[2].Visible = groupType != null && ( groupType.EnableLocationSchedules ?? false );
+            spSchedules.Visible = groupType != null && ( groupType.EnableLocationSchedules ?? false );
 
-                phGroupAttributes.Controls.Clear();
-                group.LoadAttributes();
+            phGroupAttributes.Controls.Clear();
+            group.LoadAttributes();
 
             if ( group.Attributes != null && group.Attributes.Any() )
             {
@@ -2391,7 +2385,7 @@ namespace RockWeb.Blocks.Groups
                     Schedule = schedule
                 } );
             }
-            
+
 
             BindGroupLocationScheduleCapacities( currentGroupLocationScheduleConfigs );
         }
@@ -2420,7 +2414,7 @@ namespace RockWeb.Blocks.Groups
             var selectedLocation = locpGroupLocation.Location;
             return selectedLocation != null;
         }
-        
+
         #endregion
 
         #region Location Grid and Picker
@@ -2605,11 +2599,11 @@ namespace RockWeb.Blocks.Groups
                             ScheduleId = s.Id,
                             Schedule = s
                         };
-            }
+                    }
                 } ).ToList();
 
                 // Handle case where schedules are created and no group location configuration exists yet
-                if ( groupLocationScheduleConfigList.Count() == 0 && schedules.Count() > 0  )
+                if ( groupLocationScheduleConfigList.Count() == 0 && schedules.Count() > 0 )
                 {
                     // No schedules have been saved yet.
                     groupLocationScheduleConfigList = new List<GroupLocationScheduleConfig>();
