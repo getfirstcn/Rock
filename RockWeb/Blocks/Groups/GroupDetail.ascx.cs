@@ -1184,7 +1184,7 @@ namespace RockWeb.Blocks.Groups
 
                     newGroup.LoadAttributes( rockContext );
 
-                    Rock.Attribute.Helper.CopyAttributes( group, newGroup );
+                    Rock.Attribute.Helper.CopyAttributes( group, newGroup, rockContext );
 
                     newGroup.SaveAttributeValues( rockContext );
 
