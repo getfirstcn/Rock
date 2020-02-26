@@ -1000,9 +1000,9 @@ namespace Rock.Attribute
                     {
                         var attribute = source.Attributes[item.Key];
                         var fieldType = attribute.FieldType.Field as Field.FieldType;
-                        
+
                         var value = item.Value;
-                        if ( value != null )
+                        if (fieldType != null && value != null )
                         {
                             var attributeValue = new AttributeValueCache();
                             attributeValue.AttributeId = value.AttributeId;
