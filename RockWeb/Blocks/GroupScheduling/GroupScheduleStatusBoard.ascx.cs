@@ -29,7 +29,7 @@ using Rock.Web.UI.Controls;
 namespace RockWeb.Blocks.GroupScheduling
 {
     /// <summary>
-    /// 
+    ///
     /// </summary>
     /// <seealso cref="Rock.Web.UI.RockBlock" />
     [DisplayName( "Group Schedule Status Board" )]
@@ -55,13 +55,13 @@ namespace RockWeb.Blocks.GroupScheduling
     {
         #region Fields
 
-        protected static class AttributeKey
+        private static class AttributeKey
         {
             public const string ParentGroup = "ParentGroup";
             public const string FutureWeeksToShow = "FutureWeeksToShow";
         }
 
-        protected static class UserPreferenceKey
+        private static class UserPreferenceKey
         {
             public const string GroupIds = "GroupIds";
             public const string FutureWeeksToShow = "FutureWeeksToShow";
@@ -182,7 +182,7 @@ namespace RockWeb.Blocks.GroupScheduling
 <th scope='col'></th>
 {% for scheduleOccurrenceDate in ScheduleOccurrenceDateList %}
     <th scope='col'>
-        <span class='date'>{{ scheduleOccurrenceDate.ScheduledDateTime | Date:'MMM d, yyyy'  }}</span>
+        <span class='date'>{{ scheduleOccurrenceDate.ScheduledDateTime | Date:'MMM d, yyyy' }}</span>
         <br />
         <span class='day-time'>{{ scheduleOccurrenceDate.Schedule.Name }}</span>
     </th>

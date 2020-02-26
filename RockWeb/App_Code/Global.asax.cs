@@ -229,7 +229,6 @@ namespace RockWeb
                     bool runJobsInContext = Convert.ToBoolean( ConfigurationManager.AppSettings["RunJobsInIISContext"] );
                     if ( runJobsInContext )
                     {
-
                         ISchedulerFactory sf;
 
                         // create scheduler
@@ -241,12 +240,17 @@ namespace RockWeb
                         foreach ( ServiceJob job in jobService.GetActiveJobs().ToList() )
                         {
                             const string errorLoadingStatus = "Error Loading Job";
+
                             try  
                             {
                                 IJobDetail jobDetail = jobService.BuildQuartzJob( job );
                                 ITrigger jobTrigger = jobService.BuildQuartzTrigger( job );
 
-                                sched.ScheduleJob( jobDetail, jobTrigger );
+                                // Schedule the job (unless the cron expression is set to never run for an on-demand job like rebuild streaks)
+                                if ( job.CronExpression != ServiceJob.NeverScheduledCronExpression )
+                                {
+                                    sched.ScheduleJob( jobDetail, jobTrigger );
+                                }
 
                                 //// if the last status was an error, but we now loaded successful, clear the error
                                 // also, if the last status was 'Running', clear that status because it would have stopped if the app restarted
@@ -285,6 +289,9 @@ namespace RockWeb
 
                         // set up the listener to report back from jobs as they complete
                         sched.ListenerManager.AddJobListener( new RockJobListener(), EverythingMatcher<JobKey>.AllJobs() );
+                        // set up a trigger listener that can prevent a job from running if another scheduler is
+                        // already running it (i.e., someone running it manually).
+                        sched.ListenerManager.AddTriggerListener( new RockTriggerListener(), EverythingMatcher<JobKey>.AllTriggers() );
 
                         // start the scheduler
                         sched.Start();
@@ -464,8 +471,7 @@ namespace RockWeb
         /// <param name="e">The <see cref="EventArgs" /> instance containing the event data.</param>
         protected void Application_BeginRequest( object sender, EventArgs e )
         {
-            Context.Items.Add( "Request_Start_Time", RockDateTime.Now );
-            Context.Items.Add( "Cache_Hits", new Dictionary<string, bool>() );
+            Context.AddOrReplaceItem( "Request_Start_Time", RockDateTime.Now );
         }
 
         /// <summary>
@@ -791,7 +797,7 @@ namespace RockWeb
                                                     {
                                                         sqlTxn.Rollback();
                                                     }
-                                                    throw new Exception( string.Format( "Plugin Migration error occurred in {0}, {1}",
+                                                    throw new Exception( string.Format( "##Plugin Migration error occurred in {0}, {1}##",
                                                         assemblyMigrations.Key, migrationType.Value.Name ), ex );
                                                 }
                                             }
@@ -801,6 +807,7 @@ namespace RockWeb
                                 catch ( Exception ex )
                                 {
                                     // If an exception occurs in an an assembly, log the error, and continue with next assembly
+                                    System.Diagnostics.Debug.WriteLine( ex.Message );
                                     LogError( ex, null );
                                 }
                             }
@@ -1099,15 +1106,15 @@ namespace RockWeb
                             }
 
                             mergeFields.Add( "Person", person );
-                            var recipients = new List<RecipientData>();
+                            var recipients = new List<RockEmailMessageRecipient>();
                             foreach ( string emailAddress in emailAddresses )
                             {
-                                recipients.Add( new RecipientData( emailAddress, mergeFields ) );
+                                recipients.Add( RockEmailMessageRecipient.CreateAnonymous( emailAddress, mergeFields ) );
                             }
 
                             if ( recipients.Any() )
                             {
-                                var message = new RockEmailMessage( Rock.SystemGuid.SystemEmail.CONFIG_EXCEPTION_NOTIFICATION.AsGuid() );
+                                var message = new RockEmailMessage( Rock.SystemGuid.SystemCommunication.CONFIG_EXCEPTION_NOTIFICATION.AsGuid() );
                                 message.SetRecipients( recipients );
                                 message.Send();
                             }
@@ -1168,26 +1175,7 @@ namespace RockWeb
             if ( !Global.QueueInUse )
             {
                 Global.QueueInUse = true;
-
-                while ( RockQueue.TransactionQueue.Count != 0 )
-                {
-                    ITransaction transaction;
-                    if ( RockQueue.TransactionQueue.TryDequeue( out transaction ) )
-                    {
-                        if ( transaction != null )
-                        {
-                            try
-                            {
-                                transaction.Execute();
-                            }
-                            catch ( Exception ex )
-                            {
-                                LogError( new Exception( string.Format( "Exception in Global.DrainTransactionQueue(): {0}", transaction.GetType().Name ), ex ), null );
-                            }
-                        }
-                    }
-                }
-
+                RockQueue.Drain( ( ex ) => LogError( ex, null ) );
                 Global.QueueInUse = false;
             }
         }

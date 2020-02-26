@@ -49,8 +49,8 @@
 
                 <!-- Early Access Messages -->
                 <div class="well">
-                    <div class="row margin-b-lg">
-                        <div class="col-sm-3 col-md-2 margin-b-md">
+                    <div class="row d-md-flex justify-content-center align-items-center">
+                        <div class="col-sm-3 col-md-2 mb-2 mb-md-0 clearfix">
                             <Rock:HighlightLabel runat="server" ID="hlblEarlyAccess" LabelType="Warning" Text="Early Access: Not Enabled" CssClass="padding-all-sm"></Rock:Highlightlabel>
                         </div>
                         <div class="col-sm-9 col-md-10">
@@ -135,7 +135,7 @@
 
                 <asp:Panel ID="pnlError" runat="server" Visible="false">
                     <div class="well well-message well-message-danger">
-                        <h1>Whoa... That Wasn't Suppose To Happen</h1>
+                        <h1>Whoa... That Wasn't Supposed To Happen</h1>
                         <i class="fa fa-exclamation-circle"></i>
                         <p>An error occurred during the update process.</p>
                     </div>

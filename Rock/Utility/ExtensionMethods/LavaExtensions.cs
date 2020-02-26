@@ -38,6 +38,21 @@ namespace Rock
     /// </summary>
     public static partial class ExtensionMethods
     {
+        #region Constructors
+
+        /// <summary>
+        /// Initializes the <see cref="ExtensionMethods"/> class.
+        /// </summary>
+        static ExtensionMethods()
+        {
+            //
+            // Register any 3rd party library classes that are safe to use.
+            //
+            Template.RegisterSafeType( typeof( Common.Mobile.DeviceData ), typeof( Common.Mobile.DeviceData ).GetProperties().Select( p => p.Name ).ToArray() );
+        }
+
+        #endregion
+
         #region Lava Extensions
 
         /// <summary>
@@ -534,8 +549,7 @@ namespace Rock
         }
 
         /// <summary>
-        /// Use DotLiquid to resolve any merge codes within the content using the values
-        /// in the mergeObjects.
+        /// Use Lava to resolve any merge codes within the content using the values in the merge objects.
         /// </summary>
         /// <param name="content">The content.</param>
         /// <param name="mergeObjects">The merge objects.</param>
@@ -548,7 +562,7 @@ namespace Rock
         }
 
         /// <summary>
-        /// Checks for merge fields and then resolves them.
+        /// Use Lava to resolve any merge codes within the content using the values in the merge objects.
         /// </summary>
         /// <param name="content">The content.</param>
         /// <param name="mergeObjects">The merge objects.</param>
@@ -583,7 +597,7 @@ namespace Rock
         }
 
         /// <summary>
-        /// Html Encodes string values that are processed by a lava filter
+        /// HTML Encodes string values that are processed by a lava filter
         /// </summary>
         /// <param name="s">The s.</param>
         /// <returns></returns>
@@ -602,8 +616,7 @@ namespace Rock
         }
 
         /// <summary>
-        /// Use DotLiquid to resolve any merge codes within the content using the values
-        /// in the mergeObjects.
+        /// Uses Lava to resolve any merge codes within the content using the values in the merge objects.
         /// </summary>
         /// <param name="content">The content.</param>
         /// <param name="mergeObjects">The merge objects.</param>
@@ -617,7 +630,7 @@ namespace Rock
         }
 
         /// <summary>
-        /// Resolves the merge fields.
+        /// Uses Lava to resolve any merge codes within the content using the values in the merge objects.
         /// </summary>
         /// <param name="content">The content.</param>
         /// <param name="mergeObjects">The merge objects.</param>
@@ -746,7 +759,7 @@ namespace Rock
         private static Regex hasLegacyGlobalAttributeLavaMergeFields = new Regex( @"(?<=\{).+GlobalAttribute.+(?<=\})", RegexOptions.Compiled );
 
         /// <summary>
-        /// Determines whether the string potentially has merge fields in it.
+        /// Determines whether the string potentially has lava merge fields in it.
         /// NOTE: Might return true even though it doesn't really have merge fields, but something like looks like it. For example '{56408602-5E41-4D66-98C7-BD361CD93AED}'
         /// </summary>
         /// <param name="content">The content.</param>

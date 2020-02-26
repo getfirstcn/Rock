@@ -258,7 +258,6 @@ achieve our mission.  We are so grateful for your commitment.
                     if ( page != null )
                     {
                         page.PageNavigate += page_PageNavigate;
-                        page.AddScriptLink( "~/Scripts/moment.min.js" );
                         page.AddScriptLink( "~/Scripts/moment-with-locales.min.js" );
                     }
 
@@ -301,85 +300,83 @@ achieve our mission.  We are so grateful for your commitment.
             nbMessage.Visible = false;
             pnlDupWarning.Visible = false;
 
-            if ( ScheduledTransactionId.HasValue )
-            {
-                if ( Gateway != null )
-                {
-                    // Save amounts from controls to the viewstate list
-                    foreach ( RepeaterItem item in rptAccountList.Items )
-                    {
-                        var hfAccountId = item.FindControl( "hfAccountId" ) as HiddenField;
-                        var txtAccountAmount = item.FindControl( "txtAccountAmount" ) as RockTextBox;
-                        if ( hfAccountId != null && txtAccountAmount != null )
-                        {
-                            var selectedAccount = SelectedAccounts.FirstOrDefault( a => a.Id == hfAccountId.ValueAsInt() );
-                            if ( selectedAccount != null )
-                            {
-                                selectedAccount.Amount = txtAccountAmount.Text.AsDecimal();
-                            }
-                        }
-                    }
-
-                    // Update the total amount
-                    lblTotalAmount.Text = SelectedAccounts.Sum( f => f.Amount ).ToString( "F2" );
-
-                    liNone.RemoveCssClass( "active" );
-                    liCreditCard.RemoveCssClass( "active" );
-                    liACH.RemoveCssClass( "active" );
-                    divNonePaymentInfo.RemoveCssClass( "active" );
-                    divCCPaymentInfo.RemoveCssClass( "active" );
-                    divACHPaymentInfo.RemoveCssClass( "active" );
-
-                    if ( !Gateway.IsUpdatingSchedulePaymentMethodSupported )
-                    {
-                        divPaymentMethodModification.Visible = false;
-                    }
-
-                    switch ( hfPaymentTab.Value )
-                    {
-                        case "ACH":
-                            {
-                                liACH.AddCssClass( "active" );
-                                divACHPaymentInfo.AddCssClass( "active" );
-                                break;
-                            }
-
-                        case "CreditCard":
-                            {
-                                liCreditCard.AddCssClass( "active" );
-                                divCCPaymentInfo.AddCssClass( "active" );
-                                break;
-                            }
-
-                        default:
-                            {
-                                liNone.AddCssClass( "active" );
-                                divNonePaymentInfo.AddCssClass( "active" );
-                                break;
-                            }
-                    }
-
-                    // Show or Hide the Credit card entry panel based on if a saved account exists and it's selected or not.
-                    divNewCard.Style[HtmlTextWriterStyle.Display] = ( rblSavedCC.Items.Count == 0 || rblSavedCC.Items[rblSavedCC.Items.Count - 1].Selected ) ? "block" : "none";
-
-                    if ( !Page.IsPostBack )
-                    {
-                        SetPage( 1 );
-
-                        // Get the list of accounts that can be used
-                        BindAccounts();
-                    }
-                }
-                else
-                {
-                    SetPage( 0 );
-                    ShowMessage( NotificationBoxType.Danger, "Transaction/Configuration Error", "This page is not configured to allow edits for the payment gateway associated with the selected transaction." );
-                }
-            }
-            else
+            if ( !ScheduledTransactionId.HasValue )
             {
                 SetPage( 0 );
                 ShowMessage( NotificationBoxType.Danger, "Invalid Transaction", "The transaction you've selected either does not exist or is not valid." );
+                return;
+            }
+
+            if ( Gateway == null || ( this.Gateway is IHostedGatewayComponent ) )
+            {
+                SetPage( 0 );
+                ShowMessage( NotificationBoxType.Danger, "Configuration", "This page is not configured to allow edits for the payment gateway associated with the selected transaction." );
+                return;
+            }
+
+            // Save amounts from controls to the viewstate list
+            foreach ( RepeaterItem item in rptAccountList.Items )
+            {
+                var hfAccountId = item.FindControl( "hfAccountId" ) as HiddenField;
+                var txtAccountAmount = item.FindControl( "txtAccountAmount" ) as RockTextBox;
+                if ( hfAccountId != null && txtAccountAmount != null )
+                {
+                    var selectedAccount = SelectedAccounts.FirstOrDefault( a => a.Id == hfAccountId.ValueAsInt() );
+                    if ( selectedAccount != null )
+                    {
+                        selectedAccount.Amount = txtAccountAmount.Text.AsDecimal();
+                    }
+                }
+            }
+
+            // Update the total amount
+            lblTotalAmount.Text = SelectedAccounts.Sum( f => f.Amount ).ToString( "F2" );
+
+            liNone.RemoveCssClass( "active" );
+            liCreditCard.RemoveCssClass( "active" );
+            liACH.RemoveCssClass( "active" );
+            divNonePaymentInfo.RemoveCssClass( "active" );
+            divCCPaymentInfo.RemoveCssClass( "active" );
+            divACHPaymentInfo.RemoveCssClass( "active" );
+
+            if ( !Gateway.IsUpdatingSchedulePaymentMethodSupported )
+            {
+                divPaymentMethodModification.Visible = false;
+            }
+
+            switch ( hfPaymentTab.Value )
+            {
+                case "ACH":
+                    {
+                        liACH.AddCssClass( "active" );
+                        divACHPaymentInfo.AddCssClass( "active" );
+                        break;
+                    }
+
+                case "CreditCard":
+                    {
+                        liCreditCard.AddCssClass( "active" );
+                        divCCPaymentInfo.AddCssClass( "active" );
+                        break;
+                    }
+
+                default:
+                    {
+                        liNone.AddCssClass( "active" );
+                        divNonePaymentInfo.AddCssClass( "active" );
+                        break;
+                    }
+            }
+
+            // Show or Hide the Credit card entry panel based on if a saved account exists and it's selected or not.
+            divNewCard.Style[HtmlTextWriterStyle.Display] = ( rblSavedCC.Items.Count == 0 || rblSavedCC.Items[rblSavedCC.Items.Count - 1].Selected ) ? "block" : "none";
+
+            if ( !Page.IsPostBack )
+            {
+                SetPage( 1 );
+
+                // Get the list of accounts that can be used
+                BindAccounts();
             }
         }
 
@@ -562,8 +559,8 @@ achieve our mission.  We are so grateful for your commitment.
                         var service = new FinancialScheduledTransactionService( rockContext );
                         var scheduledTransaction = service
                             .Queryable( "AuthorizedPersonAlias.Person,ScheduledTransactionDetails,FinancialGateway,FinancialPaymentDetail.CurrencyTypeValue,FinancialPaymentDetail.CreditCardTypeValue" )
-                            .Where( t => 
-                                t.Id == txnId && 
+                            .Where( t =>
+                                t.Id == txnId &&
                                 t.AuthorizedPersonAlias != null &&
                                 t.AuthorizedPersonAlias.Person != null &&
                                 validGivingIds.Contains( t.AuthorizedPersonAlias.Person.GivingId ) )
@@ -852,16 +849,11 @@ achieve our mission.  We are so grateful for your commitment.
             }
 
             string howOften = DefinedValueCache.Get( btnFrequency.SelectedValueAsId().Value ).Value;
-            DateTime when = DateTime.MinValue;
 
             // Make sure a repeating payment starts in the future
-            if ( dtpStartDate.SelectedDate.HasValue && dtpStartDate.SelectedDate > RockDateTime.Today )
+            if ( !dtpStartDate.SelectedDate.HasValue || dtpStartDate.SelectedDate <= RockDateTime.Today )
             {
-                when = dtpStartDate.SelectedDate.Value;
-            }
-            else
-            {
-                errorMessages.Add( "Make sure the Next  Gift date is in the future (after today)" );
+                errorMessages.Add( "Make sure the Next Gift date is in the future (after today)" );
             }
 
             if ( hfPaymentTab.Value == "ACH" )
@@ -978,8 +970,6 @@ achieve our mission.  We are so grateful for your commitment.
                     tdAccountNumber.Visible = true;
                     tdAccountNumber.Description = paymentInfo.MaskedNumber;
                 }
-
-                tdWhen.Description = string.Format( "{0} starting on {1}", howOften, when.ToShortDateString() );
             }
 
             rptAccountListConfirmation.DataSource = SelectedAccounts.Where( a => a.Amount != 0 );
@@ -1048,24 +1038,15 @@ achieve our mission.  We are so grateful for your commitment.
                 // Get the payment schedule
                 scheduledTransaction.TransactionFrequencyValueId = btnFrequency.SelectedValueAsId().Value;
 
-                if ( dtpStartDate.SelectedDate.HasValue && dtpStartDate.SelectedDate > RockDateTime.Today )
-                {
-                    scheduledTransaction.StartDate = dtpStartDate.SelectedDate.Value;
-                }
-                else
-                {
-                    scheduledTransaction.StartDate = DateTime.MinValue;
-                }
-
+                // ProcessPaymentInfo ensures that dtpStartDate.SelectedDate has a value and is after today
+                scheduledTransaction.StartDate = dtpStartDate.SelectedDate.Value;
+                scheduledTransaction.NextPaymentDate = Gateway.CalculateNextPaymentDate( scheduledTransaction, null );
 
                 PaymentInfo paymentInfo = GetPaymentInfo( personService, scheduledTransaction );
                 if ( paymentInfo == null )
                 {
                     errorMessage = "There was a problem creating the payment information";
                     return false;
-                }
-                else
-                {
                 }
 
                 // If transaction is not active, attempt to re-activate it first
@@ -1369,12 +1350,12 @@ achieve our mission.  We are so grateful for your commitment.
         }});
 
         // Set the date prompt based on the frequency value entered
-        $('#ButtonDropDown_btnFrequency .dropdown-menu a').click( function () {{
-            var $when = $(this).parents('div.form-group:first').next();
+        $('#ButtonDropDown_btnFrequency .dropdown-menu a').on('click', function () {{
+            var $when = $(this).parents('div.form-group').first().next();
             if ($(this).attr('data-id') == '{3}') {{
-                $when.find('label:first').html('When');
+                $when.find('label').first().html('When');
             }} else {{
-                $when.find('label:first').html('First Gift');
+                $when.find('label').first().html('First Gift');
 
                 // Set date to tomorrow if it is equal or less than today's date
                 var $dateInput = $when.find('input');
@@ -1409,7 +1390,7 @@ achieve our mission.  We are so grateful for your commitment.
 
         // Toggle credit card display if saved card option is available
         $('div.radio-content').prev('.form-group').find('input:radio').unbind('click').on('click', function () {{
-            var $content = $(this).parents('div.form-group:first').next('.radio-content')
+            var $content = $(this).parents('div.form-group').first().next('.radio-content')
             var radioDisplay = $content.css('display');
             if ($(this).val() == 0 && radioDisplay == 'none') {{
                 $content.slideToggle();
@@ -1425,23 +1406,23 @@ achieve our mission.  We are so grateful for your commitment.
         }});
 
         // Disable the submit button as soon as it's clicked to prevent double-clicking
-        $('a[id$=""btnNext""]').click(function() {{
+        $('a[id$=""btnNext""]').on('click', function() {{
 			$(this).addClass('disabled');
 			$(this).unbind('click');
-			$(this).click(function () {{
+			$(this).on('click', function () {{
 				return false;
 			}});
         }});
     }});
 
 ";
-            string script = string.Format( 
-                scriptFormat, 
+            string script = string.Format(
+                scriptFormat,
                 divCCPaymentInfo.ClientID, // {0}
-                divACHPaymentInfo.ClientID, // {1} 
-                hfPaymentTab.ClientID, // {2} 
-                oneTimeFrequencyId, // {3} 
-                GlobalAttributesCache.Value( "CurrencySymbol") // {4}
+                divACHPaymentInfo.ClientID, // {1}
+                hfPaymentTab.ClientID, // {2}
+                oneTimeFrequencyId, // {3}
+                GlobalAttributesCache.Value( "CurrencySymbol" ) // {4}
                 );
             ScriptManager.RegisterStartupScript( upPayment, this.GetType(), "giving-profile", script, true );
         }

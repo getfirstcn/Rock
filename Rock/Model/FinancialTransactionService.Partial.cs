@@ -36,7 +36,7 @@ namespace Rock.Model
         /// <param name="transactionCode">The transaction code.</param>
         /// <returns></returns>
         [RockObsolete( "1.8" )]
-        [Obsolete( "Use GetByTransactionCode(financialGatewayId, transaction). This one could return incorrect results if transactions from different financial gateways happen to use the same transaction code" )]
+        [Obsolete( "Use GetByTransactionCode(financialGatewayId, transaction). This one could return incorrect results if transactions from different financial gateways happen to use the same transaction code", true )]
         public FinancialTransaction GetByTransactionCode( string transactionCode )
         {
             return this.GetByTransactionCode( null, transactionCode );
@@ -120,6 +120,8 @@ namespace Rock.Model
         /// <returns></returns>
         public FinancialTransaction ProcessRefund( FinancialTransaction transaction, decimal? amount, int? reasonValueId, string summary, bool process, string batchNameSuffix, out string errorMessage )
         {
+            errorMessage = string.Empty;
+
             // Validate parameters
             if ( transaction == null )
             {
@@ -156,7 +158,7 @@ namespace Rock.Model
                     return null;
                 }
 
-                var gatewayComponent = transaction.FinancialGateway.GetGatewayComponent();
+                var gatewayComponent = transaction.FinancialGateway?.GetGatewayComponent();
                 if ( gatewayComponent == null )
                 {
                     errorMessage = "Could not get the Gateway component in order to process the refund";
@@ -264,8 +266,6 @@ namespace Rock.Model
                 timespan = transaction.FinancialGateway.GetBatchTimeOffset();
             }
             var batch = batchService.GetByNameAndDate( batchName, refundTransaction.TransactionDateTime.Value, timespan );
-            decimal controlAmount = batch.ControlAmount + refundTransaction.TotalAmount;
-            batch.ControlAmount = controlAmount;
 
             // If this is a new Batch, SaveChanges so that we can get the Batch.Id
             if ( batch.Id == 0)
@@ -275,8 +275,11 @@ namespace Rock.Model
 
             refundTransaction.BatchId = batch.Id;
             Add( refundTransaction );
+            rockContext.SaveChanges();
 
-            errorMessage = string.Empty;
+            batchService.IncrementControlAmount( batch.Id, refundTransaction.TotalAmount, null );
+            rockContext.SaveChanges();
+
             return refundTransaction;
         }
 

@@ -34,18 +34,18 @@ using Rock.Web.Cache;
 /// </summary>
 public class TwilioSmsAsync : IHttpAsyncHandler
 {
-    public IAsyncResult BeginProcessRequest(HttpContext context, AsyncCallback cb, Object extraData)
+    public IAsyncResult BeginProcessRequest( HttpContext context, AsyncCallback cb, Object extraData )
     {
-        TwilioSmsResponseAsync twilioAsync = new TwilioSmsResponseAsync(cb, context, extraData);
+        TwilioSmsResponseAsync twilioAsync = new TwilioSmsResponseAsync( cb, context, extraData );
         twilioAsync.StartAsyncWork();
         return twilioAsync;
     }
 
-    public void EndProcessRequest(IAsyncResult result)
+    public void EndProcessRequest( IAsyncResult result )
     {
     }
 
-    public void ProcessRequest(HttpContext context)
+    public void ProcessRequest( HttpContext context )
     {
         throw new InvalidOperationException();
     }
@@ -154,19 +154,21 @@ class TwilioSmsResponseAsync : IAsyncResult
             messageSid = request.Form["MessageSid"];
 
             // get communication from the message side
-            RockContext rockContext = new RockContext();
-            CommunicationRecipientService recipientService = new CommunicationRecipientService( rockContext );
+            using ( RockContext rockContext = new RockContext() )
+            {
+                CommunicationRecipientService recipientService = new CommunicationRecipientService( rockContext );
 
-            var communicationRecipient = recipientService.Queryable().Where( r => r.UniqueMessageId == messageSid ).FirstOrDefault();
-            if ( communicationRecipient != null )
-            {
-                communicationRecipient.Status = CommunicationRecipientStatus.Failed;
-                communicationRecipient.StatusNote = "Message failure notified from Twilio on " + RockDateTime.Now.ToString();
-                rockContext.SaveChanges();
-            }
-            else
-            {
-                WriteToLog( "No recipient was found with the specified MessageSid value!" );
+                var communicationRecipient = recipientService.Queryable().Where( r => r.UniqueMessageId == messageSid ).FirstOrDefault();
+                if ( communicationRecipient != null )
+                {
+                    communicationRecipient.Status = CommunicationRecipientStatus.Failed;
+                    communicationRecipient.StatusNote = "Message failure notified from Twilio on " + RockDateTime.Now.ToString();
+                    rockContext.SaveChanges();
+                }
+                else
+                {
+                    WriteToLog( "No recipient was found with the specified MessageSid value!" );
+                }
             }
         }
     }
@@ -196,32 +198,36 @@ class TwilioSmsResponseAsync : IAsyncResult
 
         if ( !string.IsNullOrWhiteSpace( message.ToNumber ) && !string.IsNullOrWhiteSpace( message.FromNumber ) )
         {
-            message.FromPerson = new PersonService( new RockContext() ).GetPersonFromMobilePhoneNumber( message.FromNumber.Replace( "+", "" ) );
-
-            var outcomes = SmsActionService.ProcessIncomingMessage( message );
-            var smsResponse = SmsActionService.GetResponseFromOutcomes( outcomes );
-            var twilioMessage = new Twilio.TwiML.Message();
-
-            if ( smsResponse != null )
+            using ( var rockContext = new RockContext() )
             {
-                if ( !string.IsNullOrWhiteSpace( smsResponse.Message ) )
-                {
-                    twilioMessage.Body( smsResponse.Message );
-                }
+                message.FromPerson = new PersonService( rockContext ).GetPersonFromMobilePhoneNumber( message.FromNumber, true );
 
-                if ( smsResponse.Attachments != null && smsResponse.Attachments.Any() )
+                var smsPipelineId = request.QueryString["smsPipelineId"].AsIntegerOrNull();
+                var outcomes = SmsActionService.ProcessIncomingMessage( message, smsPipelineId );
+                var smsResponse = SmsActionService.GetResponseFromOutcomes( outcomes );
+                var twilioMessage = new Twilio.TwiML.Message();
+                var messagingResponse = new Twilio.TwiML.MessagingResponse();
+
+                if ( smsResponse != null )
                 {
-                    foreach ( var binaryFile in smsResponse.Attachments )
+                    if ( !string.IsNullOrWhiteSpace( smsResponse.Message ) )
                     {
-                        twilioMessage.Media( binaryFile.Url );
+                        twilioMessage.Body( smsResponse.Message );
                     }
+
+                    if ( smsResponse.Attachments != null && smsResponse.Attachments.Any() )
+                    {
+                        foreach ( var binaryFile in smsResponse.Attachments )
+                        {
+                            twilioMessage.Media( binaryFile.Url );
+                        }
+                    }
+
+                    messagingResponse.Message( twilioMessage );
                 }
+
+                response.Write( messagingResponse.ToString() );
             }
-
-            var messagingResponse = new Twilio.TwiML.MessagingResponse();
-            messagingResponse.Message( twilioMessage );
-
-            response.Write( messagingResponse.ToString() );
         }
     }
 

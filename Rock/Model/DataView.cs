@@ -26,6 +26,7 @@ using System.Runtime.Serialization;
 using System.Web.UI.WebControls;
 
 using Rock.Data;
+using Rock.Reporting;
 using Rock.Security;
 using Rock.Web.Cache;
 using Rock.Web.UI.Controls;
@@ -129,6 +130,15 @@ namespace Rock.Model
         /// </value>
         [DataMember]
         public DateTime? PersistedLastRefreshDateTime { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether deceased should be included.
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if [include deceased]; otherwise, <c>false</c>.
+        /// </value>
+        [DataMember]
+        public bool IncludeDeceased { get; set; }
 
         #endregion
 
@@ -410,64 +420,73 @@ namespace Rock.Model
             errorMessages = new List<string>();
 
             var cachedEntityType = EntityTypeCache.Get( EntityTypeId.Value );
-            if ( cachedEntityType != null && cachedEntityType.AssemblyName != null )
+            if ( cachedEntityType?.AssemblyName == null )
             {
-                Type filteredEntityType = cachedEntityType.GetEntityType();
+                return null;
+            }
 
-                if ( filteredEntityType != null )
+            Type filteredEntityType = cachedEntityType.GetEntityType();
+            if ( filteredEntityType == null )
+            {
+                return null;
+            }
+
+            bool usePersistedValues = this.PersistedScheduleIntervalMinutes.HasValue && this.PersistedLastRefreshDateTime.HasValue;
+            if ( dataViewFilterOverrides != null )
+            {
+                // don't use persisted values if this dataview is in the list of dataviews that should not be persisted due to override
+                usePersistedValues = usePersistedValues && !dataViewFilterOverrides.IgnoreDataViewPersistedValues.Contains( this.Id );
+            }
+
+            if ( usePersistedValues )
+            {
+                // If this is a persisted dataview, get the ids for the expression by querying DataViewPersistedValue instead of evaluating all the filters
+                var rockContext = serviceInstance.Context as RockContext;
+                if ( rockContext == null )
                 {
-                    bool usePersistedValues = this.PersistedScheduleIntervalMinutes.HasValue && this.PersistedLastRefreshDateTime.HasValue;
-                    if ( dataViewFilterOverrides != null )
+                    rockContext = new RockContext();
+                }
+
+                var persistedValuesQuery = rockContext.DataViewPersistedValues.Where( a => a.DataViewId == this.Id );
+                var ids = persistedValuesQuery.Select( v => v.EntityId );
+                MemberExpression propertyExpression = Expression.Property( paramExpression, "Id" );
+                if ( !( serviceInstance.Context is RockContext ) )
+                {
+                    // if this DataView doesn't use a RockContext get the EntityIds into memory as as a List<int> then back into IQueryable<int> so that we aren't use multiple dbContexts
+                    ids = ids.ToList().AsQueryable();
+                }
+
+                var idsExpression = Expression.Constant( ids.AsQueryable(), typeof( IQueryable<int> ) );
+
+                Expression expression = Expression.Call( typeof( Queryable ), "Contains", new Type[] { typeof( int ) }, idsExpression, propertyExpression );
+
+                return expression;
+            }
+            else
+            {
+                Expression filterExpression = DataViewFilter != null ? DataViewFilter.GetExpression( filteredEntityType, serviceInstance, paramExpression, dataViewFilterOverrides, errorMessages ) : null;
+                if ( cachedEntityType.Id == EntityTypeCache.Get( typeof( Rock.Model.Person ) ).Id )
+                {
+                    var qry = new PersonService( ( RockContext ) serviceInstance.Context ).Queryable( this.IncludeDeceased );
+                    Expression extractedFilterExpression = FilterExpressionExtractor.Extract<Rock.Model.Person>( qry, paramExpression, "p" );
+                    if ( filterExpression == null )
                     {
-                        usePersistedValues = usePersistedValues && !dataViewFilterOverrides.IgnoreDataViewPersistedValues.Contains( this.Id );
-                    }
-
-                    // don't use persisted values if there are dataViewFilterOverrides
-                    if ( usePersistedValues && dataViewFilterOverrides?.Any() == true )
-                    {
-                        usePersistedValues = false;
-                    }
-
-                    if ( usePersistedValues )
-                    {
-                        // If this is a persisted dataview, get the ids for the expression by querying DataViewPersistedValue instead of evaluating all the filters
-                        var rockContext = serviceInstance.Context as RockContext;
-                        if ( rockContext == null )
-                        {
-                            rockContext = new RockContext();
-                        }
-
-                        var persistedValuesQuery = rockContext.DataViewPersistedValues.Where( a => a.DataViewId == this.Id );
-                        var ids = persistedValuesQuery.Select( v => v.EntityId );
-                        MemberExpression propertyExpression = Expression.Property( paramExpression, "Id" );
-                        if ( !(serviceInstance.Context is RockContext) )
-                        {
-                            // if this DataView doesn't use a RockContext get the EntityIds into memory as as a List<int> then back into IQueryable<int> so that we aren't use multiple dbContexts
-                            ids = ids.ToList().AsQueryable();
-                        }
-
-                        var idsExpression = Expression.Constant( ids.AsQueryable(), typeof( IQueryable<int> ) );
-
-                        Expression expression = Expression.Call( typeof( Queryable ), "Contains", new Type[] { typeof( int ) }, idsExpression, propertyExpression );
-
-                        return expression;
+                        filterExpression = extractedFilterExpression;
                     }
                     else
                     {
-                        Expression filterExpression = DataViewFilter != null ? DataViewFilter.GetExpression( filteredEntityType, serviceInstance, paramExpression, dataViewFilterOverrides, errorMessages ) : null;
-
-                        Expression transformedExpression = GetTransformExpression( serviceInstance, paramExpression, filterExpression, errorMessages );
-                        if ( transformedExpression != null )
-                        {
-                            return transformedExpression;
-                        }
-
-                        return filterExpression;
+                        filterExpression = Expression.AndAlso( filterExpression, extractedFilterExpression );
                     }
                 }
-            }
 
-            return null;
+                Expression transformedExpression = GetTransformExpression( serviceInstance, paramExpression, filterExpression, errorMessages );
+                if ( transformedExpression != null )
+                {
+                    return transformedExpression;
+                }
+
+                return filterExpression;
+            }
         }
 
         /// <summary>
@@ -477,58 +496,61 @@ namespace Rock.Model
         public void PersistResult( int? databaseTimeoutSeconds = null )
         {
             List<string> errorMessages;
-            var dbContext = this.GetDbContext();
-            
-            DataViewFilterOverrides dataViewFilterOverrides = new DataViewFilterOverrides();
 
-            // set an override so that the Persisted Values aren't used when rebuilding the values from the DataView Query
-            dataViewFilterOverrides.IgnoreDataViewPersistedValues.Add( this.Id );
-
-            var qry = this.GetQuery( null, dbContext, dataViewFilterOverrides, databaseTimeoutSeconds, out errorMessages );
-            if ( !errorMessages.Any() )
+            using ( var dbContext = this.GetDbContext() )
             {
-                RockContext rockContext = dbContext as RockContext;
-                if ( rockContext == null )
+                DataViewFilterOverrides dataViewFilterOverrides = new DataViewFilterOverrides();
+
+                // set an override so that the Persisted Values aren't used when rebuilding the values from the DataView Query
+                dataViewFilterOverrides.IgnoreDataViewPersistedValues.Add( this.Id );
+
+                var qry = this.GetQuery( null, dbContext, dataViewFilterOverrides, databaseTimeoutSeconds, out errorMessages );
+                if ( !errorMessages.Any() )
                 {
-                    rockContext = new RockContext();
-                }
+                    RockContext rockContext = dbContext as RockContext;
+                    if ( rockContext == null )
+                    {
+                        rockContext = new RockContext();
+                    }
 
-                rockContext.Database.CommandTimeout = databaseTimeoutSeconds;
-                var savedDataViewPersistedValues = rockContext.DataViewPersistedValues.Where( a => a.DataViewId == this.Id );
+                    rockContext.Database.CommandTimeout = databaseTimeoutSeconds;
+                    var savedDataViewPersistedValues = rockContext.DataViewPersistedValues.Where( a => a.DataViewId == this.Id );
 
-                var updatedEntityIdsQry = qry.Select( a => a.Id );
+                    var updatedEntityIdsQry = qry.Select( a => a.Id );
 
-                if ( !(rockContext is RockContext) )
-                {
-                    // if this DataView doesn't use a RockContext get the EntityIds into memory as as a List<int> then back into IQueryable<int> so that we aren't use multiple dbContexts
-                    updatedEntityIdsQry = updatedEntityIdsQry.ToList().AsQueryable();
-                }
+                    if ( !( rockContext is RockContext ) )
+                    {
+                        // if this DataView doesn't use a RockContext get the EntityIds into memory as as a List<int> then back into IQueryable<int> so that we aren't use multiple dbContexts
+                        updatedEntityIdsQry = updatedEntityIdsQry.ToList().AsQueryable();
+                    }
 
-                var persistedValuesToRemove = savedDataViewPersistedValues.Where( a => !updatedEntityIdsQry.Any( x => x == a.EntityId ) );
-                var persistedEntityIdsToInsert = updatedEntityIdsQry.Where( x => !savedDataViewPersistedValues.Any( a => a.EntityId == x ) ).ToList();
-                
-                int removeCount = persistedValuesToRemove.Count();
-                if ( removeCount > 0 )
-                {
-                    // increase the batch size if there are a bunch of rows (and this is a narrow table with no references to it)
-                    int? deleteBatchSize = removeCount > 50000 ? 25000 : ( int? ) null;
+                    var persistedValuesToRemove = savedDataViewPersistedValues.Where( a => !updatedEntityIdsQry.Any( x => x == a.EntityId ) );
+                    var persistedEntityIdsToInsert = updatedEntityIdsQry.Where( x => !savedDataViewPersistedValues.Any( a => a.EntityId == x ) ).ToList();
 
-                    int rowRemoved = rockContext.BulkDelete( persistedValuesToRemove, deleteBatchSize );
-                }
+                    int removeCount = persistedValuesToRemove.Count();
+                    if ( removeCount > 0 )
+                    {
+                        // increase the batch size if there are a bunch of rows (and this is a narrow table with no references to it)
+                        int? deleteBatchSize = removeCount > 50000 ? 25000 : ( int? ) null;
 
-                if ( persistedEntityIdsToInsert.Any() )
-                {
-                    List<DataViewPersistedValue> persistedValuesToInsert = persistedEntityIdsToInsert.OrderBy( a => a )
-                        .Select( a =>
-                        new DataViewPersistedValue
-                        {
-                            DataViewId = this.Id,
-                            EntityId = a
-                        } ).ToList();
+                        int rowRemoved = rockContext.BulkDelete( persistedValuesToRemove, deleteBatchSize );
+                    }
 
-                    rockContext.BulkInsert( persistedValuesToInsert );
+                    if ( persistedEntityIdsToInsert.Any() )
+                    {
+                        List<DataViewPersistedValue> persistedValuesToInsert = persistedEntityIdsToInsert.OrderBy( a => a )
+                            .Select( a =>
+                            new DataViewPersistedValue
+                            {
+                                DataViewId = this.Id,
+                                EntityId = a
+                            } ).ToList();
+
+                        rockContext.BulkInsert( persistedValuesToInsert );
+                    }
                 }
             }
+
         }
 
         /// <summary>

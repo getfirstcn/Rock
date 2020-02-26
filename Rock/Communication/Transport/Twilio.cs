@@ -85,13 +85,13 @@ namespace Rock.Communication.Transport
 
                 List<Uri> attachmentMediaUrls = GetAttachmentMediaUrls( rockMessage.Attachments.AsQueryable() );
 
-                foreach ( var recipientData in rockMessage.GetRecipientData() )
+                foreach ( var recipient in rockMessage.GetRecipients() )
                 {
                     try
                     {
                         foreach ( var mergeField in mergeFields )
                         {
-                            recipientData.MergeFields.AddOrIgnore( mergeField.Key, mergeField.Value );
+                            recipient.MergeFields.AddOrIgnore( mergeField.Key, mergeField.Value );
                         }
 
                         CommunicationRecipient communicationRecipient = null;
@@ -99,19 +99,20 @@ namespace Rock.Communication.Transport
                         using ( var rockContext = new RockContext() )
                         {
                             CommunicationRecipientService communicationRecipientService = new CommunicationRecipientService( rockContext );
-                            int? recipientId = recipientData.CommunicationRecipientId.AsIntegerOrNull();
+                            int? recipientId = recipient.CommunicationRecipientId;
                             if ( recipientId != null )
                             {
                                 communicationRecipient = communicationRecipientService.Get( recipientId.Value );
                             }
 
-                            string message = ResolveText( smsMessage.Message, smsMessage.CurrentPerson, communicationRecipient, smsMessage.EnabledLavaCommands, recipientData.MergeFields, smsMessage.AppRoot, smsMessage.ThemeRoot );
-                            Person recipientPerson = ( Person ) recipientData.MergeFields.GetValueOrNull( "Person" );
+                            string message = ResolveText( smsMessage.Message, smsMessage.CurrentPerson, communicationRecipient, smsMessage.EnabledLavaCommands, recipient.MergeFields, smsMessage.AppRoot, smsMessage.ThemeRoot );
+                            Person recipientPerson = ( Person ) recipient.MergeFields.GetValueOrNull( "Person" );
 
                             // Create the communication record and send using that if we have a person since a communication record requires a valid person. Otherwise just send without creating a communication record.
                             if ( rockMessage.CreateCommunicationRecord && recipientPerson != null )
                             {
                                 var communicationService = new CommunicationService( rockContext );
+
                                 Rock.Model.Communication communication = communicationService.CreateSMSCommunication( smsMessage.CurrentPerson, recipientPerson?.PrimaryAliasId, message, smsMessage.FromNumber, string.Empty, smsMessage.communicationName );
 
                                 // Since we just created a new communication record, we need to move any attachments from the rockMessage
@@ -130,7 +131,7 @@ namespace Rock.Communication.Transport
                             }
                             else
                             {
-                                MessageResource response = SendToTwilio( smsMessage.FromNumber.Value, null, attachmentMediaUrls, message, recipientData.To );
+                                MessageResource response = SendToTwilio( smsMessage.FromNumber.Value, null, attachmentMediaUrls, message, recipient.To );
 
                                 if ( response.ErrorMessage.IsNotNullOrWhiteSpace() )
                                 {
@@ -424,7 +425,7 @@ namespace Rock.Communication.Transport
                     createMessageOptions.MediaUrl = attachmentMediaUrls;
                 }
 
-                if ( System.Web.Hosting.HostingEnvironment.IsDevelopmentEnvironment )
+                if ( System.Web.Hosting.HostingEnvironment.IsDevelopmentEnvironment && !callbackUrl.Contains(".ngrok.io") )
                 {
                     createMessageOptions.StatusCallback = null;
                 }
@@ -433,130 +434,6 @@ namespace Rock.Communication.Transport
             }
 
             return response;
-        }
-
-        #endregion
-
-        #region Obsolete
-
-        /// <summary>
-        /// Sends the specified communication.
-        /// </summary>
-        /// <param name="communication">The communication.</param>
-        /// <exception cref="System.NotImplementedException"></exception>
-        [RockObsolete( "1.7" )]
-        [Obsolete( "Use Send( Communication communication, Dictionary<string, string> mediumAttributes ) instead", true )]
-        public override void Send( Model.Communication communication )
-        {
-            int mediumEntityId = EntityTypeCache.Get( Rock.SystemGuid.EntityType.COMMUNICATION_MEDIUM_EMAIL.AsGuid() )?.Id ?? 0;
-            Send( communication, mediumEntityId, null );
-        }
-
-        /// <summary>
-        /// Sends the specified template.
-        /// </summary>
-        /// <param name="template">The template.</param>
-        /// <param name="recipients">The recipients.</param>
-        /// <param name="appRoot">The application root.</param>
-        /// <param name="themeRoot">The theme root.</param>
-        /// <exception cref="System.NotImplementedException"></exception>
-        [RockObsolete( "1.7" )]
-        [Obsolete( "Use Send( RockMessage message, out List<string> errorMessage ) method instead", true )]
-        public override void Send( SystemEmail template, List<RecipientData> recipients, string appRoot, string themeRoot )
-        {
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
-        /// Sends the specified medium data to the specified list of recipients.
-        /// </summary>
-        /// <param name="mediumData">The medium data.</param>
-        /// <param name="recipients">The recipients.</param>
-        /// <param name="appRoot">The application root.</param>
-        /// <param name="themeRoot">The theme root.</param>
-        /// <exception cref="System.NotImplementedException"></exception>
-        [RockObsolete( "1.7" )]
-        [Obsolete( "Use Send( RockMessage message, out List<string> errorMessage ) method instead", true )]
-        public override void Send(Dictionary<string, string> mediumData, List<string> recipients, string appRoot, string themeRoot)
-        {
-            var message = new RockSMSMessage();
-            message.FromNumber = DefinedValueCache.Get( ( mediumData.GetValueOrNull( "FromValue" ) ?? string.Empty ).AsInteger() );
-            message.SetRecipients( recipients );
-            message.ThemeRoot = themeRoot;
-            message.AppRoot = appRoot;
-
-            var errorMessages = new List<string>();
-            int mediumEntityId = EntityTypeCache.Get( Rock.SystemGuid.EntityType.COMMUNICATION_MEDIUM_SMS.AsGuid() )?.Id ?? 0;
-            Send( message, mediumEntityId, null, out errorMessages );
-        }
-
-        /// <summary>
-        /// Sends the specified recipients.
-        /// </summary>
-        /// <param name="recipients">The recipients.</param>
-        /// <param name="from">From.</param>
-        /// <param name="subject">The subject.</param>
-        /// <param name="body">The body.</param>
-        /// <param name="appRoot">The application root.</param>
-        /// <param name="themeRoot">The theme root.</param>
-        /// <exception cref="System.NotImplementedException"></exception>
-        [RockObsolete( "1.7" )]
-        [Obsolete( "Use Send( RockMessage message, out List<string> errorMessage ) method instead", true )]
-        public override void Send( List<string> recipients, string from, string subject, string body, string appRoot = null, string themeRoot = null )
-        {
-            var message = new RockSMSMessage();
-            message.FromNumber = DefinedValueCache.Get( from.AsInteger() );
-            if ( message.FromNumber == null )
-            {
-                message.FromNumber = DefinedTypeCache.Get( SystemGuid.DefinedType.COMMUNICATION_SMS_FROM.AsGuid() )
-                    .DefinedValues
-                    .Where( v => v.Value == from )
-                    .FirstOrDefault();
-            }
-            message.SetRecipients( recipients );
-            message.ThemeRoot = themeRoot;
-            message.AppRoot = appRoot;
-
-            var errorMessages = new List<string>();
-            int mediumEntityId = EntityTypeCache.Get( SystemGuid.EntityType.COMMUNICATION_MEDIUM_SMS.AsGuid() )?.Id ?? 0;
-            Send( message, mediumEntityId, null, out errorMessages );
-        }
-
-        /// <summary>
-        /// Sends the specified recipients.
-        /// </summary>
-        /// <param name="recipients">The recipients.</param>
-        /// <param name="from">From.</param>
-        /// <param name="subject">The subject.</param>
-        /// <param name="body">The body.</param>
-        /// <param name="appRoot">The application root.</param>
-        /// <param name="themeRoot">The theme root.</param>
-        /// <param name="attachments">Attachments.</param>
-        /// <exception cref="System.NotImplementedException"></exception>
-        [RockObsolete( "1.7" )]
-        [Obsolete( "Use Send( RockMessage message, out List<string> errorMessage ) method instead", true )]
-        public override void Send(List<string> recipients, string from, string subject, string body, string appRoot = null, string themeRoot = null, List<Attachment> attachments = null)
-        {
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
-        /// Sends the specified recipients.
-        /// </summary>
-        /// <param name="recipients">The recipients.</param>
-        /// <param name="from">From.</param>
-        /// <param name="fromName">From name.</param>
-        /// <param name="subject">The subject.</param>
-        /// <param name="body">The body.</param>
-        /// <param name="appRoot">The application root.</param>
-        /// <param name="themeRoot">The theme root.</param>
-        /// <param name="attachments">The attachments.</param>
-        /// <exception cref="System.NotImplementedException"></exception>
-        [RockObsolete( "1.7" )]
-        [Obsolete( "Use Send( RockMessage message, out List<string> errorMessage ) method instead", true )]
-        public override void Send( List<string> recipients, string from, string fromName, string subject, string body, string appRoot = null, string themeRoot = null, List<Attachment> attachments = null )
-        {
-            throw new NotImplementedException();
         }
 
         #endregion

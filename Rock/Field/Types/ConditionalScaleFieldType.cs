@@ -36,8 +36,14 @@ namespace Rock.Field.Types
     {
         #region ConfigurationKeys
 
+        /// <summary>
+        /// The keys for configuration
+        /// </summary>
         private static class ConfigurationKey
         {
+            /// <summary>
+            /// The configuration JSON key
+            /// </summary>
             public const string ConfigurationJSON = "ConfigurationJSON";
         }
 
@@ -231,6 +237,8 @@ namespace Rock.Field.Types
             {
                 return string.Empty;
             }
+
+            rangeValue = decimal.Round( rangeValue.Value, 0 );
 
             var configurationJSON = configurationValues.GetValueOrNull( ConfigurationKey.ConfigurationJSON );
             List<ConditionalScaleRangeRule> conditionalScaleRangeRuleList = configurationJSON.FromJsonOrNull<List<ConditionalScaleRangeRule>>() ?? new List<ConditionalScaleRangeRule>();

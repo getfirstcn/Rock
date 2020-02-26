@@ -168,22 +168,11 @@ namespace Rock.Model
         /// <c>true</c> if this instance is analytic supported; otherwise, <c>false</c>.
         /// </value>
         [RockObsolete( "1.8" )]
-        [Obsolete( "Use EntityTypeCache.IsAnalyticsSupported(..) instead") ]
+        [Obsolete( "Use EntityTypeCache.IsAnalyticsSupported(..) instead", true ) ]
         public bool IsAnalyticSupported
         {
             get
             {
-                Type type = null;
-                if ( !string.IsNullOrWhiteSpace( this.AssemblyName ) )
-                {
-                    type = Type.GetType( this.AssemblyName );
-                }
-
-                if ( type != null )
-                {
-                    return typeof( IAnalytic ).IsAssignableFrom( type );
-                }
-
                 return false;
             }
         }
@@ -195,22 +184,11 @@ namespace Rock.Model
         /// <c>true</c> if this instance is analytic historical supported; otherwise, <c>false</c>.
         /// </value>
         [RockObsolete( "1.8" )]
-        [Obsolete( "Use EntityTypeCache.IsAnalyticHistoricalSupported(..) instead" )]
+        [Obsolete( "Use EntityTypeCache.IsAnalyticHistoricalSupported(..) instead", true )]
         public bool IsAnalyticHistoricalSupported
         {
             get
             {
-                Type type = null;
-                if ( !string.IsNullOrWhiteSpace( this.AssemblyName ) )
-                {
-                    type = Type.GetType( this.AssemblyName );
-                }
-
-                if ( type != null )
-                {
-                    return typeof( IAnalyticHistorical ).IsAssignableFrom( type );
-                }
-
                 return false;
             }
         }
@@ -274,6 +252,12 @@ namespace Rock.Model
         /// The link URL.
         /// </value>
         public string LinkUrlLavaTemplate { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether attributes of this entity type support displaying on bulk entry forms.
+        /// </summary>
+        [DataMember]
+        public bool AttributesSupportShowOnBulk { get; set; }
 
         #endregion
 

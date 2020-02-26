@@ -101,12 +101,13 @@ namespace Rock.Model
             target.ChangePasswordPageRouteId = source.ChangePasswordPageRouteId;
             target.CommunicationPageId = source.CommunicationPageId;
             target.CommunicationPageRouteId = source.CommunicationPageRouteId;
-            target.ConfigurationMobilePhoneFileId = source.ConfigurationMobilePhoneFileId;
-            target.ConfigurationMobileTabletFileId = source.ConfigurationMobileTabletFileId;
+            target.ConfigurationMobilePhoneBinaryFileId = source.ConfigurationMobilePhoneBinaryFileId;
+            target.ConfigurationMobileTabletBinaryFileId = source.ConfigurationMobileTabletBinaryFileId;
             target.DefaultPageId = source.DefaultPageId;
             target.DefaultPageRouteId = source.DefaultPageRouteId;
             target.Description = source.Description;
             target.EnabledForShortening = source.EnabledForShortening;
+            target.EnableExclusiveRoutes = source.EnableExclusiveRoutes;
             target.EnableMobileRedirect = source.EnableMobileRedirect;
             target.EnablePageViews = source.EnablePageViews;
             target.ErrorPage = source.ErrorPage;
@@ -115,9 +116,6 @@ namespace Rock.Model
             target.ForeignGuid = source.ForeignGuid;
             target.ForeignKey = source.ForeignKey;
             target.GoogleAnalyticsCode = source.GoogleAnalyticsCode;
-            #pragma warning disable 612, 618
-            target.IconCssWeight = source.IconCssWeight;
-            #pragma warning restore 612, 618
             target.IndexStartingLocation = source.IndexStartingLocation;
             target.IsActive = source.IsActive;
             target.IsIndexEnabled = source.IsIndexEnabled;
@@ -137,7 +135,7 @@ namespace Rock.Model
             target.SiteLogoBinaryFileId = source.SiteLogoBinaryFileId;
             target.SiteType = source.SiteType;
             target.Theme = source.Theme;
-            target.ThumbnailFileId = source.ThumbnailFileId;
+            target.ThumbnailBinaryFileId = source.ThumbnailBinaryFileId;
             target.CreatedDateTime = source.CreatedDateTime;
             target.ModifiedDateTime = source.ModifiedDateTime;
             target.CreatedByPersonAliasId = source.CreatedByPersonAliasId;

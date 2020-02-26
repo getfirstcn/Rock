@@ -14,11 +14,14 @@
 // limitations under the License.
 // </copyright>
 //
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Data.Entity;
 using System.Data.Entity.ModelConfiguration;
 using System.Runtime.Serialization;
 
 using Rock.Data;
+using Rock.Web.Cache;
 
 namespace Rock.Model
 {
@@ -28,7 +31,7 @@ namespace Rock.Model
     [RockDomain( "Communication" )]
     [Table( "SmsAction" )]
     [DataContract]
-    public class SmsAction : Model<SmsAction>, IOrdered
+    public class SmsAction : Model<SmsAction>, IOrdered, ICacheable
     {
         #region Entity Properties
 
@@ -65,12 +68,58 @@ namespace Rock.Model
         public int SmsActionComponentEntityTypeId { get; set; }
 
         /// <summary>
+        /// Gets or sets the SMS pipeline identifier.
+        /// </summary>
+        /// <value>
+        /// The SMS pipeline identifier.
+        /// </value>
+        [Required]
+        [DataMember( IsRequired = true )]
+        public int SmsPipelineId { get; set; }
+
+        /// <summary>
         /// Gets or sets a value indicating whether further actions should be processed.
         /// </summary>
         /// <value>
         ///   <c>true</c> if further actions should be processed; otherwise, <c>false</c>.
         /// </value>
         public bool ContinueAfterProcessing { get; set; }
+
+        #endregion
+
+        #region ICacheable
+
+        /// <summary>
+        /// Gets the cache object associated with this Entity
+        /// </summary>
+        /// <returns></returns>
+        public IEntityCache GetCacheObject()
+        {
+            return SmsActionCache.Get( Id );
+        }
+
+        /// <summary>
+        /// Updates any Cache Objects that are associated with this entity
+        /// </summary>
+        /// <param name="entityState">State of the entity.</param>
+        /// <param name="dbContext">The database context.</param>
+        public void UpdateCache( EntityState entityState, Rock.Data.DbContext dbContext )
+        {
+            SmsActionCache.UpdateCachedEntity( Id, entityState );
+        }
+
+        #endregion ICacheable
+
+        #region Virtual Properties
+
+        /// <summary>
+        /// Gets or sets the <see cref="Rock.Model.SmsPipeline"/> representing the SmsPipeline.
+        /// </summary>
+        /// <value>
+        /// A <see cref="Rock.Model.SmsPipeline"/> representing the SmsPipeline for this SmsAction.
+        /// </value>
+        [DataMember]
+        public virtual Model.SmsPipeline SmsPipeline { get; set; }
 
         #endregion
     }
@@ -87,6 +136,7 @@ namespace Rock.Model
         /// </summary>
         public SmsActionConfiguration()
         {
+            this.HasRequired( p => p.SmsPipeline ).WithMany( p => p.SmsActions ).HasForeignKey( p => p.SmsPipelineId ).WillCascadeOnDelete( true );
         }
     }
 

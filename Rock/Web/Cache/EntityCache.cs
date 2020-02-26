@@ -186,6 +186,44 @@ namespace Rock.Web.Cache
             return value;
         }
 
+        /// <summary>
+        /// Get the specified entity, or throw an Exception if it does not exist.
+        /// </summary>
+        /// <param name="entityDescription"></param>
+        /// <param name="id"></param>
+        /// <param name="rockContext"></param>
+        /// <returns></returns>
+        public static T GetOrThrow( string entityDescription, int id, RockContext rockContext = null )
+        {
+            try
+            {
+                return Get( id, rockContext );
+            }
+            catch
+            {
+                throw new Exception( $"System configuration error. Entity not found [Type=\"{typeof( T ).Name}\",Name=\"{ entityDescription }\", Id=\"{ id }\"]." );
+            }
+        }
+
+        /// <summary>
+        /// Get the specified entity, or throw an Exception if it does not exist.
+        /// </summary>
+        /// <param name="entityDescription"></param>
+        /// <param name="guid"></param>
+        /// <param name="rockContext"></param>
+        /// <returns></returns>
+        public static T GetOrThrow( string entityDescription, Guid guid, RockContext rockContext = null )
+        {
+            try
+            {
+                return Get( guid, rockContext );
+            }
+            catch
+            {
+                throw new Exception( $"System configuration error. Entity not found [Type=\"{typeof( T ).Name}\",Name=\"{ entityDescription }\", Guid=\"{ guid }\"]." );
+            }
+        }
+
         #region Obsolete Methods
 
         /// <summary>
@@ -195,7 +233,7 @@ namespace Rock.Web.Cache
         /// <param name="rockContext">The rock context.</param>
         /// <returns></returns>
         [RockObsolete( "1.8" )]
-        [Obsolete("Use Get instead")]
+        [Obsolete("Use Get instead", true )]
         public static T Read( int id, RockContext rockContext = null )
         {
             return Get( id, rockContext );
@@ -208,7 +246,7 @@ namespace Rock.Web.Cache
         /// <param name="rockContext">The rock context.</param>
         /// <returns></returns>
         [RockObsolete( "1.8" )]
-        [Obsolete( "Use Get instead" )]
+        [Obsolete( "Use Get instead", true )]
         public static T Read( Guid guid, RockContext rockContext = null )
         {
             return Get( guid, rockContext );
@@ -220,7 +258,7 @@ namespace Rock.Web.Cache
         /// <param name="model">The model.</param>
         /// <returns></returns>
         [RockObsolete( "1.8" )]
-        [Obsolete( "Use Get instead" )]
+        [Obsolete( "Use Get instead", true )]
         public static T Read( TT model )
         {
             return Get( model );
@@ -231,7 +269,7 @@ namespace Rock.Web.Cache
         /// </summary>
         /// <param name="id">The identifier.</param>
         [RockObsolete( "1.8" )]
-        [Obsolete( "Use FlushItem or Remove instead" )]
+        [Obsolete( "Use FlushItem or Remove instead", true )]
         public static void Flush( int id )
         {
             Remove( id );

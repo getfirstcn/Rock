@@ -1,4 +1,20 @@
-﻿using System;
+﻿// <copyright>
+// Copyright by the Spark Development Network
+//
+// Licensed under the Rock Community License (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.rockrms.com/license
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// </copyright>
+//
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -24,17 +40,12 @@ namespace Rock.Jobs
         IsRequired = true,
         Order = 0 )]
 
-    [SystemEmailField( "Notification Email",
+    [SystemCommunicationField( "Notification Email",
         Key = AttributeKey.NotificationEmail,
         IsRequired = true,
         Order = 1 )]
 
-    [GroupRoleField(
-        Name = "Group Role Filter",
-        Key = AttributeKey.GroupRoleFilter,
-        Description = "Optional group role to filter the absent members by.To select the role you’ll need to select a group type.",
-        IsRequired = false,
-        Order = 2 )]
+    [GroupRoleField( null, "Group Role Filter", "Optional group role to filter the absent members by. To select the role you'll need to select a group type.", false, null, null, 2, AttributeKey.GroupRoleFilter )]
 
     [IntegerField( "Minimum Absences",
         Key = AttributeKey.MinimumAbsences,
@@ -110,9 +121,9 @@ namespace Rock.Jobs
             int minimumAbsences = dataMap.GetString( AttributeKey.MinimumAbsences ).AsInteger();
 
             // get system email
-            SystemEmailService emailService = new SystemEmailService( rockContext );
+            var emailService = new SystemCommunicationService( rockContext );
 
-            SystemEmail systemEmail = null;
+            SystemCommunication systemEmail = null;
             if ( !systemEmailGuid.HasValue || systemEmailGuid == Guid.Empty )
             {
                 context.Result = "Job failed. Unable to find System Email";
@@ -176,7 +187,7 @@ namespace Rock.Jobs
 
                     if ( absentPersons.Count > 0 )
                     {
-                        var recipients = new List<RecipientData>();
+                        var recipients = new List<RockEmailMessageRecipient>();
                         foreach ( var leader in groupLeaders )
                         {
                             // create merge object
@@ -184,7 +195,7 @@ namespace Rock.Jobs
                             mergeFields.Add( "AbsentMembers", absentPersons );
                             mergeFields.Add( "Group", group );
                             mergeFields.Add( "Person", leader.Person );
-                            recipients.Add( new RecipientData( leader.Person.Email, mergeFields ) );
+                            recipients.Add( new RockEmailMessageRecipient( leader.Person, mergeFields ) );
                         }
 
                         var errorMessages = new List<string>();
