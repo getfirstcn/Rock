@@ -2099,6 +2099,9 @@
     <Compile Include="Web\UI\Controls\Pickers\RegistrationTemplatePicker.cs" />
     <Compile Include="Web\UI\Controls\RockListBox.cs" />
     <Compile Include="Web\UI\IDynamicAttributesBlock.cs" />
+    <Compile Include="Web\UI\RockRestBlock.cs">
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
     <Compile Include="Web\UI\RockTheme.cs" />
     <Compile Include="Web\UI\Controls\WarningBlock.cs" />
     <Compile Include="Web\UI\Controls\Pickers\WorkflowActionTypePicker.cs" />

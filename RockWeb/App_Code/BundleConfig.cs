@@ -92,6 +92,13 @@ public class BundleConfig
         bundles.Add( new ScriptBundle( "~/Scripts/Bundles/StructureContentEditorPlugins" ).Include(
             "~/Scripts/editor.js/*.js" ) );
 
+        // Add Rock Rest Block specific scripts
+        bundles.Add( new ScriptBundle( "~/Scripts/Bundles/RockRestBlocks" ).Include(
+            "~/Scripts/axios.js",
+            "~/Scripts/vue.js",
+            "~/Scripts/Rock/rockRestBlocks.js",
+            "~/Scripts/Rock/VueControls/*.js" ) );
+
         // make sure the ConcatenationToken is what we want.  This is supposed to be the default, but it occasionally was an empty string.
         foreach ( var bundle in bundles )
         {

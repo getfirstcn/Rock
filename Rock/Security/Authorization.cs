@@ -728,6 +728,30 @@ namespace Rock.Security
         /// <param name="IsImpersonated">if set to <c>true</c> [is impersonated].</param>
         public static void SetAuthCookie( string userName, bool isPersisted, bool IsImpersonated )
         {
+            var authCookie = GetAuthCookie( userName, isPersisted, IsImpersonated );
+
+            if ( authCookie == null )
+            {
+                return;
+            }
+
+            HttpContext.Current.Response.Cookies.Add( authCookie );
+            var domainCookie = GetDomainCookie( authCookie );
+
+            if ( domainCookie != null )
+            {
+                HttpContext.Current.Response.Cookies.Add( domainCookie );
+            }
+        }
+
+        /// <summary>
+        /// Gets the auth cookie.
+        /// </summary>
+        /// <param name="userName">Name of the user.</param>
+        /// <param name="isPersisted">if set to <c>true</c> [is persisted].</param>
+        /// <param name="IsImpersonated">if set to <c>true</c> [is impersonated].</param>
+        public static HttpCookie GetAuthCookie( string userName, bool isPersisted, bool IsImpersonated )
+        {
             var ticket = new FormsAuthenticationTicket( 1, userName, RockDateTime.Now,
                 RockDateTime.Now.Add( FormsAuthentication.Timeout ), isPersisted,
                 IsImpersonated.ToString(), FormsAuthentication.FormsCookiePath );
@@ -737,11 +761,22 @@ namespace Rock.Security
             {
                 authCookie.Expires = ticket.Expiration;
             }
-            HttpContext.Current.Response.Cookies.Add( authCookie );
 
+            return authCookie;
+        }
+
+        /// <summary>
+        /// Gets the domain cookie.
+        /// </summary>
+        /// <param name="authCookie"></param>
+        public static HttpCookie GetDomainCookie( HttpCookie authCookie )
+        {
             // If cookie is for a more generic domain, we need to store that domain so that we can expire it correctly 
             // when the user signs out.
-            if ( !authCookie.Domain.IsNotNullOrWhiteSpace() ) return;
+            if ( !authCookie.Domain.IsNotNullOrWhiteSpace() )
+            {
+                return null;
+            }
 
             var domainCookie =
                 new HttpCookie( $"{FormsAuthentication.FormsCookieName}_DOMAIN", authCookie.Domain )
@@ -752,8 +787,8 @@ namespace Rock.Security
                     Secure = FormsAuthentication.RequireSSL,
                     Expires = authCookie.Expires
                 };
-            HttpContext.Current.Response.Cookies.Add( domainCookie );
 
+            return domainCookie;
         }
 
         /// <summary>

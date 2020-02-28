@@ -45,7 +45,7 @@ namespace Rock.Web.UI
         /// <value>
         /// The page cache.
         /// </value>
-        internal protected PageCache PageCache { get; private set; }
+        internal protected PageCache PageCache { get; set; }
 
         /// <summary>
         /// Gets the block cache.
@@ -53,7 +53,7 @@ namespace Rock.Web.UI
         /// <value>
         /// The block cache.
         /// </value>
-        internal protected BlockCache BlockCache { get; private set; }
+        internal protected BlockCache BlockCache { get; set; }
 
         /// <summary>
         /// Gets a value indicating whether [user can edit].

@@ -18,14 +18,17 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Web;
 using System.Web.UI;
 using System.Web.UI.HtmlControls;
 using System.Web.UI.WebControls;
 using Rock;
 using Rock.Attribute;
+using Rock.Blocks;
 using Rock.Communication;
 using Rock.Data;
 using Rock.Model;
+using Rock.Net;
 using Rock.Security;
 using Rock.Web.Cache;
 using Rock.Web.UI;
@@ -63,8 +66,17 @@ Thank you for logging in, however, we need to confirm the email associated with 
     [LinkedPage( "Redirect Page", "Page to redirect user to upon successful login. The 'returnurl' query string will always override this setting for database authenticated logins. Redirect Page Setting will override third-party authentication 'returnurl'.", false, "", "", 14 )]
 
     [CodeEditorField( "Invalid PersonToken Text", "The text to show when a person is logged out due to an invalid persontoken. <span class='tip tip-lava'></span>.", CodeEditorMode.Html, CodeEditorTheme.Rock, 100, false, @"<div class='alert alert-warning'>The login token you provided is no longer valid. Please login below.</div>", "", 15 )]
-    public partial class Login : Rock.Web.UI.RockBlock
+    public partial class Login : RockRestBlock
     {
+        /// <summary>
+        /// Gets the root element identifier. Should be something like upnlMyBlock.ClientId
+        /// </summary>
+        /// <returns></returns>
+        protected override string GetRootElementId()
+        {
+            return upnlContent.ClientID;
+        }
+
         #region Base Control Methods
 
         /// <summary>
@@ -111,7 +123,8 @@ Thank you for logging in, however, we need to confirm the email associated with 
                 {
                     string loginTypeName = component.GetType().Name;
 
-                    // Check if returning from third-party authentication
+                    // TODO Check if returning from third-party authentication
+                    /*
                     if ( !IsPostBack && component.IsReturningFromAuthentication( Request ) )
                     {
                         string userName = string.Empty;
@@ -131,6 +144,7 @@ Thank you for logging in, however, we need to confirm the email associated with 
                             }
                         }
                     }
+                    */
 
                     activeAuthProviders.Add( component );
 
@@ -228,7 +242,9 @@ Thank you for logging in, however, we need to confirm the email associated with 
             }
 
             pnlMessage.Visible = false;
-            tbUserName.Focus();
+
+            // TODO
+            //tbUserName.Focus();
         }
 
         #endregion
@@ -239,35 +255,50 @@ Thank you for logging in, however, we need to confirm the email associated with 
         /// Handles the Click event of the btnLogin control.
         /// NOTE: This is the btnLogin for Internal Auth
         /// </summary>
-        /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="System.EventArgs"/> instance containing the event data.</param>
-        protected void btnLogin_Click( object sender, EventArgs e )
+        /// <param name="password"></param>
+        /// <param name="rememberMe"></param>
+        /// <param name="username"></param>
+        [BlockAction( "action_login" )]
+        public LoginResult btnLogin_Click( string username, string password, bool rememberMe )
         {
-            if ( Page.IsValid )
+            var rockContext = new RockContext();
+            var userLoginService = new UserLoginService( rockContext );
+            var userLogin = userLoginService.GetByUserName( username );
+            if ( userLogin != null && userLogin.EntityType != null )
             {
-                var rockContext = new RockContext();
-                var userLoginService = new UserLoginService( rockContext );
-                var userLogin = userLoginService.GetByUserName( tbUserName.Text );
-                if ( userLogin != null && userLogin.EntityType != null )
+                var component = AuthenticationContainer.GetComponent( userLogin.EntityType.Name );
+                if ( component != null && component.IsActive && !component.RequiresRemoteAuthentication )
                 {
-                    var component = AuthenticationContainer.GetComponent( userLogin.EntityType.Name );
-                    if ( component != null && component.IsActive && !component.RequiresRemoteAuthentication )
-                    {
-                        var isSuccess = component.AuthenticateAndTrack( userLogin, tbPassword.Text );
-                        rockContext.SaveChanges();
+                    var isSuccess = component.AuthenticateAndTrack( userLogin, password );
+                    rockContext.SaveChanges();
 
-                        if ( isSuccess )
+                    if ( isSuccess )
+                    {
+                        var result = new LoginResult { IsSuccess = true };
+
+                        if ( ( userLogin.IsConfirmed ?? true ) && !( userLogin.IsLockedOut ?? false ) )
                         {
-                            CheckUser( userLogin, Request.QueryString["returnurl"], cbRememberMe.Checked );
-                            return;
-                        }
-                        else if ( component.Authenticate( userLogin, tbPassword.Text ) )
-                        {
-                            // If the password authenticates, check to see if this user is locked out.
-                            if ( CheckUserLockout( userLogin ) )
+                            UserLoginService.UpdateLastLogin( userLogin.UserName );
+                            result.AuthCookie = Authorization.GetAuthCookie( userLogin.UserName, rememberMe, false );
+
+                            if ( result.AuthCookie != null )
                             {
-                                return;
+                                result.DomainCookie = Authorization.GetDomainCookie( result.AuthCookie );
                             }
+                        }
+                        else
+                        {
+                            CheckUserLockoutAndConfirmation( userLogin );
+                        }
+
+                        return result;
+                    }
+                    else if ( component.Authenticate( userLogin, password ) )
+                    {
+                        // If the password authenticates, check to see if this user is locked out.
+                        if ( CheckUserLockout( userLogin ) )
+                        {
+                            return new LoginResult();
                         }
                     }
                 }
@@ -286,19 +317,21 @@ Thank you for logging in, however, we need to confirm the email associated with 
 
             var mergeFieldsNoAccount = Rock.Lava.LavaHelper.GetCommonMergeFields( this.RockPage, this.CurrentPerson );
             mergeFieldsNoAccount.Add( "HelpPage", helpUrl );
-            DisplayError( GetAttributeValue( "NoAccountText" ).ResolveMergeFields( mergeFieldsNoAccount ) );
+
+            return new LoginResult {
+                ErrorMessage = GetAttributeValue( "NoAccountText" ).ResolveMergeFields( mergeFieldsNoAccount )
+            };
         }
 
         /// <summary>
         /// Checks if a username is locked out or needs confirmation, and handles those events
         /// </summary>
         /// <param name="userName">Name of the user.</param>
-        /// <param name="returnUrl">The return URL.</param>
         /// <param name="rememberMe">if set to <c>true</c> [remember me].</param>
-        private void CheckUser( string userName, string returnUrl, bool rememberMe )
+        private void CheckUser( string userName, bool rememberMe )
         {
             var userLogin = new UserLoginService( new RockContext() ).GetByUserName( userName );
-            CheckUser( userLogin, returnUrl, rememberMe );
+            CheckUser( userLogin, rememberMe );
         }
 
 
@@ -306,15 +339,14 @@ Thank you for logging in, however, we need to confirm the email associated with 
         /// Checks if a userLogin is locked out or needs confirmation, and handles those events
         /// </summary>
         /// <param name="userLogin">The user login.</param>
-        /// <param name="returnUrl">Where to redirect next</param>
         /// <param name="rememberMe">True for external auth, the checkbox for internal auth</param>
-        private void CheckUser( UserLogin userLogin, string returnUrl, bool rememberMe )
+        private void CheckUser( UserLogin userLogin, bool rememberMe )
         {
             if ( userLogin != null )
             {
                 if ( ( userLogin.IsConfirmed ?? true ) && !( userLogin.IsLockedOut ?? false ) )
                 {
-                    LoginUser( userLogin.UserName, returnUrl, rememberMe );
+                    LoginUser( userLogin.UserName, rememberMe );
                 }
                 else
                 {
@@ -381,7 +413,7 @@ Thank you for logging in, however, we need to confirm the email associated with 
         {
             if ( sender is LinkButton )
             {
-                LinkButton lb = (LinkButton)sender;
+                LinkButton lb = ( LinkButton ) sender;
 
                 foreach ( var serviceEntry in AuthenticationContainer.Instance.Components )
                 {
@@ -479,9 +511,8 @@ Thank you for logging in, however, we need to confirm the email associated with 
         /// Logs in the user.
         /// </summary>
         /// <param name="userName">Name of the user.</param>
-        /// <param name="returnUrl">The return URL.</param>
         /// <param name="rememberMe">if set to <c>true</c> [remember me].</param>
-        private void LoginUser( string userName, string returnUrl, bool rememberMe )
+        private void LoginUser( string userName, bool rememberMe )
         {
             string redirectUrlSetting = LinkedPageUrl( "RedirectPage" );
 
@@ -489,10 +520,12 @@ Thank you for logging in, however, we need to confirm the email associated with 
 
             Authorization.SetAuthCookie( userName, rememberMe, false );
 
+            // TODO Move this redirect logic to the client
+            /*
             if ( !string.IsNullOrWhiteSpace( returnUrl ) )
             {
-                string redirectUrl = ExtensionMethods.ScrubEncodedStringForXSSObjects(returnUrl);
-                redirectUrl =  Server.UrlDecode( redirectUrl );
+                string redirectUrl = ExtensionMethods.ScrubEncodedStringForXSSObjects( returnUrl );
+                redirectUrl = Server.UrlDecode( redirectUrl );
                 Response.Redirect( redirectUrl, false );
                 Context.ApplicationInstance.CompleteRequest();
             }
@@ -505,6 +538,7 @@ Thank you for logging in, however, we need to confirm the email associated with 
             {
                 RockPage.Layout.Site.RedirectToDefaultPage();
             }
+            */
         }
 
         /// <summary>
@@ -536,6 +570,44 @@ Thank you for logging in, however, we need to confirm the email associated with 
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// A login result object
+    /// </summary>
+    public class LoginResult
+    {
+        /// <summary>
+        /// Gets or sets a value indicating whether this instance is success.
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if this instance is success; otherwise, <c>false</c>.
+        /// </value>
+        public bool IsSuccess { get; set; }
+
+        /// <summary>
+        /// Gets or sets the cookie.
+        /// </summary>
+        /// <value>
+        /// The cookie.
+        /// </value>
+        public HttpCookie AuthCookie { get; set; }
+
+        /// <summary>
+        /// Gets or sets the domain cookie.
+        /// </summary>
+        /// <value>
+        /// The domain cookie.
+        /// </value>
+        public HttpCookie DomainCookie { get; set; }
+
+        /// <summary>
+        /// Gets or sets the error message.
+        /// </summary>
+        /// <value>
+        /// The error message.
+        /// </value>
+        public string ErrorMessage { get; set; }
     }
 
     // helpful links
