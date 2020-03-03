@@ -74,8 +74,10 @@ Thank you for logging in, however, we need to confirm the email associated with 
         /// <returns></returns>
         protected override string GetRootElementId()
         {
-            return upnlContent.ClientID;
+            return string.Format( "login_{0}", _instanceGuid );
         }
+
+        private readonly Guid _instanceGuid = Guid.NewGuid();
 
         #region Base Control Methods
 
@@ -86,165 +88,6 @@ Thank you for logging in, however, we need to confirm the email associated with 
         protected override void OnInit( EventArgs e )
         {
             base.OnInit( e );
-
-            this.BlockUpdated += Login_BlockUpdated;
-            this.AddConfigurationUpdateTrigger( upnlContent );
-
-            ApplyBlockSettings();
-        }
-
-        /// <summary>
-        /// Applies the block settings.
-        /// </summary>
-        private void ApplyBlockSettings()
-        {
-            btnNewAccount.Visible = !GetAttributeValue( "HideNewAccount" ).AsBoolean();
-            btnNewAccount.Text = this.GetAttributeValue( "NewAccountButtonText" ) ?? "Register";
-
-            phExternalLogins.Controls.Clear();
-
-            List<AuthenticationComponent> activeAuthProviders = new List<AuthenticationComponent>();
-
-            var selectedGuids = new List<Guid>();
-            GetAttributeValue( "RemoteAuthorizationTypes" ).SplitDelimitedValues()
-                .ToList()
-                .ForEach( v => selectedGuids.Add( v.AsGuid() ) );
-
-            lRemoteAuthLoginsHeadingText.Text = this.GetAttributeValue( "RemoteAuthorizationPromptMessage" );
-
-            // Look for active external authentication providers
-            foreach ( var serviceEntry in AuthenticationContainer.Instance.Components )
-            {
-                var component = serviceEntry.Value.Value;
-
-                if ( component.IsActive &&
-                    component.RequiresRemoteAuthentication &&
-                    selectedGuids.Contains( component.EntityType.Guid ) )
-                {
-                    string loginTypeName = component.GetType().Name;
-
-                    // TODO Check if returning from third-party authentication
-                    /*
-                    if ( !IsPostBack && component.IsReturningFromAuthentication( Request ) )
-                    {
-                        string userName = string.Empty;
-                        string returnUrl = string.Empty;
-                        string redirectUrlSetting = LinkedPageUrl( "RedirectPage" );
-                        if ( component.Authenticate( Request, out userName, out returnUrl ) )
-                        {
-                            if ( !string.IsNullOrWhiteSpace( redirectUrlSetting ) )
-                            {
-                                CheckUser( userName, redirectUrlSetting, true );
-                                break;
-                            }
-                            else
-                            {
-                                CheckUser( userName, returnUrl, true );
-                                break;
-                            }
-                        }
-                    }
-                    */
-
-                    activeAuthProviders.Add( component );
-
-                    LinkButton lbLogin = new LinkButton();
-                    phExternalLogins.Controls.Add( lbLogin );
-                    lbLogin.AddCssClass( "btn btn-authentication " + component.LoginButtonCssClass );
-                    lbLogin.ID = "lb" + loginTypeName + "Login";
-                    lbLogin.Click += lbLogin_Click;
-                    lbLogin.CausesValidation = false;
-
-                    if ( !string.IsNullOrWhiteSpace( component.ImageUrl() ) )
-                    {
-                        HtmlImage img = new HtmlImage();
-                        lbLogin.Controls.Add( img );
-                        img.Attributes.Add( "style", "border:none" );
-                        img.Src = Page.ResolveUrl( component.ImageUrl() );
-                    }
-
-                    lbLogin.Text = component.LoginButtonText;
-                }
-            }
-
-            // adjust the page layout based on the RemoteAuth and InternalLogin options
-            pnlRemoteAuthLogins.Visible = activeAuthProviders.Any();
-            bool showInternalLogin = this.GetAttributeValue( "ShowInternalLogin" ).AsBooleanOrNull() ?? true;
-            pnlInternalAuthLogin.Visible = showInternalLogin;
-
-            if ( activeAuthProviders.Count() == 1 && !showInternalLogin )
-            {
-                var singleAuthProvider = activeAuthProviders[0];
-                bool redirecttoSingleExternalAuthProvider = this.GetAttributeValue( "RedirecttoSingleExternalAuthProvider" ).AsBoolean();
-
-                if ( redirecttoSingleExternalAuthProvider )
-                {
-                    Uri remoteAuthLoginUri = singleAuthProvider.GenerateLoginUrl( this.Request );
-                    if ( remoteAuthLoginUri != null )
-                    {
-                        if ( IsUserAuthorized( Rock.Security.Authorization.ADMINISTRATE ) )
-                        {
-                            nbAdminRedirectPrompt.Text = string.Format( "If you did not have Administrate permissions on this block, you would have been redirected to the <a href='{0}'>{1}</a> url.", remoteAuthLoginUri.AbsoluteUri, singleAuthProvider.LoginButtonText );
-                            nbAdminRedirectPrompt.Visible = true;
-                        }
-                        else
-                        {
-                            Response.Redirect( remoteAuthLoginUri.AbsoluteUri, false );
-                            Context.ApplicationInstance.CompleteRequest();
-                            return;
-                        }
-                    }
-                }
-            }
-
-            if ( pnlInternalAuthLogin.Visible && pnlRemoteAuthLogins.Visible )
-            {
-                // if they are both visible, show in 2 equal columns
-                pnlRemoteAuthLogins.CssClass = "col-sm-6 margin-b-lg";
-                pnlInternalAuthLogin.CssClass = "col-sm-6";
-            }
-            else
-            {
-                // if only one (or none) is visible, show in one column
-                pnlRemoteAuthLogins.CssClass = "col-sm-12 margin-b-lg";
-                pnlInternalAuthLogin.CssClass = "col-sm-12";
-            }
-        }
-
-        /// <summary>
-        /// Handles the BlockUpdated event of the Login control.
-        /// </summary>
-        /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        private void Login_BlockUpdated( object sender, EventArgs e )
-        {
-            ApplyBlockSettings();
-        }
-
-        /// <summary>
-        /// Raises the <see cref="E:System.Web.UI.Control.Load" /> event.
-        /// </summary>
-        /// <param name="e">The <see cref="T:System.EventArgs" /> object that contains the event data.</param>
-        protected override void OnLoad( EventArgs e )
-        {
-            base.OnLoad( e );
-
-            if ( !Page.IsPostBack )
-            {
-                lPromptMessage.Text = GetAttributeValue( "PromptMessage" );
-
-                if ( (bool?)Session["InvalidPersonToken"] == true )
-                {
-                    var mergeFields = Rock.Lava.LavaHelper.GetCommonMergeFields( this.RockPage, this.CurrentPerson );
-                    lInvalidPersonTokenText.Text = GetAttributeValue( "InvalidPersonTokenText" ).ResolveMergeFields( mergeFields );
-                    Session.Remove( "InvalidPersonToken" );
-                }
-            }
-
-            pnlMessage.Visible = false;
-
-            // TODO
-            //tbUserName.Focus();
         }
 
         #endregion
@@ -258,8 +101,8 @@ Thank you for logging in, however, we need to confirm the email associated with 
         /// <param name="password"></param>
         /// <param name="rememberMe"></param>
         /// <param name="username"></param>
-        [BlockAction( "action_login" )]
-        public LoginResult btnLogin_Click( string username, string password, bool rememberMe )
+        [BlockAction( "login" )]
+        public LoginResult BlockActionLogin( string username, string password, bool rememberMe )
         {
             var rockContext = new RockContext();
             var userLoginService = new UserLoginService( rockContext );
@@ -274,9 +117,9 @@ Thank you for logging in, however, we need to confirm the email associated with 
 
                     if ( isSuccess )
                     {
-                        var result = new LoginResult { IsSuccess = true };
+                        var result = new LoginResult();
 
-                        if ( ( userLogin.IsConfirmed ?? true ) && !( userLogin.IsLockedOut ?? false ) )
+                        if ( ( userLogin.IsConfirmed ?? true ) && !IsLockedOut( userLogin ) )
                         {
                             UserLoginService.UpdateLastLogin( userLogin.UserName );
                             result.AuthCookie = Authorization.GetAuthCookie( userLogin.UserName, rememberMe, false );
@@ -284,37 +127,20 @@ Thank you for logging in, however, we need to confirm the email associated with 
                             if ( result.AuthCookie != null )
                             {
                                 result.DomainCookie = Authorization.GetDomainCookie( result.AuthCookie );
+                                result.IsSuccess = true;
                             }
                         }
-                        else
+                        else if (IsLockedOut(userLogin))
                         {
-                            CheckUserLockoutAndConfirmation( userLogin );
+                            result.ErrorMessage = GetLockoutMessage();
                         }
 
                         return result;
                     }
-                    else if ( component.Authenticate( userLogin, password ) )
-                    {
-                        // If the password authenticates, check to see if this user is locked out.
-                        if ( CheckUserLockout( userLogin ) )
-                        {
-                            return new LoginResult();
-                        }
-                    }
                 }
             }
 
-            string helpUrl = string.Empty;
-
-            if ( !string.IsNullOrWhiteSpace( GetAttributeValue( "HelpPage" ) ) )
-            {
-                helpUrl = LinkedPageUrl( "HelpPage" );
-            }
-            else
-            {
-                helpUrl = ResolveRockUrl( "~/ForgotUserName" );
-            }
-
+            var helpUrl = GetHelpPageUrl();
             var mergeFieldsNoAccount = Rock.Lava.LavaHelper.GetCommonMergeFields( this.RockPage, this.CurrentPerson );
             mergeFieldsNoAccount.Add( "HelpPage", helpUrl );
 
@@ -324,222 +150,52 @@ Thank you for logging in, however, we need to confirm the email associated with 
         }
 
         /// <summary>
-        /// Checks if a username is locked out or needs confirmation, and handles those events
-        /// </summary>
-        /// <param name="userName">Name of the user.</param>
-        /// <param name="rememberMe">if set to <c>true</c> [remember me].</param>
-        private void CheckUser( string userName, bool rememberMe )
-        {
-            var userLogin = new UserLoginService( new RockContext() ).GetByUserName( userName );
-            CheckUser( userLogin, rememberMe );
-        }
-
-
-        /// <summary>
-        /// Checks if a userLogin is locked out or needs confirmation, and handles those events
+        /// Determines whether the user login is locked out.
         /// </summary>
         /// <param name="userLogin">The user login.</param>
-        /// <param name="rememberMe">True for external auth, the checkbox for internal auth</param>
-        private void CheckUser( UserLogin userLogin, bool rememberMe )
+        /// <returns>
+        ///   <c>true</c> if [is locked out] [the specified user login]; otherwise, <c>false</c>.
+        /// </returns>
+        private bool IsLockedOut(UserLogin userLogin)
         {
-            if ( userLogin != null )
-            {
-                if ( ( userLogin.IsConfirmed ?? true ) && !( userLogin.IsLockedOut ?? false ) )
-                {
-                    LoginUser( userLogin.UserName, rememberMe );
-                }
-                else
-                {
-                    CheckUserLockoutAndConfirmation( userLogin );
-                }
-            }
+            return userLogin.IsLockedOut ?? false;
         }
 
         /// <summary>
-        /// Checks to see if the user is locked out and then verifies that their account has been confirmed.
-        /// </summary>
-        /// <param name="userLogin">The user login.</param>
-        private void CheckUserLockoutAndConfirmation( UserLogin userLogin )
-        {
-            var mergeFields = Rock.Lava.LavaHelper.GetCommonMergeFields( RockPage, CurrentPerson );
-
-            if ( CheckUserLockout( userLogin, mergeFields ) )
-            {
-                return;
-            }
-            else
-            {
-                SendConfirmation( userLogin );
-
-                lConfirmCaption.Text = GetAttributeValue( "ConfirmCaption" ).ResolveMergeFields( mergeFields );
-                pnlLogin.Visible = false;
-                pnlConfirmation.Visible = true;
-            }
-        }
-
-        /// <summary>
-        /// Checks to see if the user is locked out and shows an appropriate message if they are.
+        /// Gets the message for a lockout
         /// </summary>
         /// <param name="userLogin">The user login.</param>
         /// <param name="mergeFields">The merge fields.</param>
         /// <returns>True if the user is locked out.</returns>
-        private bool CheckUserLockout( UserLogin userLogin, Dictionary<string, object> mergeFields = null )
+        private string GetLockoutMessage( Dictionary<string, object> mergeFields = null )
         {
-            if ( mergeFields == null )
-            {
-                mergeFields = Rock.Lava.LavaHelper.GetCommonMergeFields( RockPage, CurrentPerson );
-            }
-
-            bool isLockedOut = ( userLogin.IsLockedOut ?? false );
-
-            if ( isLockedOut )
-            {
-                lLockedOutCaption.Text = GetAttributeValue( "LockedOutCaption" ).ResolveMergeFields( mergeFields );
-                pnlLogin.Visible = false;
-                pnlLockedOut.Visible = true;
-            }
-
-            return isLockedOut;
-        }
-
-        /// <summary>
-        /// Handles the Click event of the lbLogin control.
-        /// NOTE: This is the lbLogin for External/Remote logins
-        /// </summary>
-        /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="EventArgs" /> instance containing the event data.</param>
-        /// <exception cref="System.NotImplementedException"></exception>
-        protected void lbLogin_Click( object sender, EventArgs e )
-        {
-            if ( sender is LinkButton )
-            {
-                LinkButton lb = ( LinkButton ) sender;
-
-                foreach ( var serviceEntry in AuthenticationContainer.Instance.Components )
-                {
-                    var component = serviceEntry.Value.Value;
-                    if ( component.IsActive && component.RequiresRemoteAuthentication )
-                    {
-                        string loginTypeName = component.GetType().Name;
-                        if ( lb.ID == "lb" + loginTypeName + "Login" )
-                        {
-                            Uri uri = component.GenerateLoginUrl( Request );
-                            if ( uri != null )
-                            {
-                                Response.Redirect( uri.AbsoluteUri, false );
-                                Context.ApplicationInstance.CompleteRequest();
-                                return;
-                            }
-                            else
-                            {
-                                DisplayError( string.Format( "ERROR: {0} does not have a remote login URL", loginTypeName ) );
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Handles the Click event of the btnLogin control.
-        /// </summary>
-        /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="System.EventArgs"/> instance containing the event data.</param>
-        protected void btnNewAccount_Click( object sender, EventArgs e )
-        {
-            string returnUrl = Request.QueryString["returnurl"];
-
-            if ( !string.IsNullOrWhiteSpace( GetAttributeValue( "NewAccountPage" ) ) )
-            {
-                var parms = new Dictionary<string, string>();
-
-                if ( !string.IsNullOrWhiteSpace( returnUrl ) )
-                {
-                    parms.Add( "returnurl", returnUrl );
-                }
-
-                NavigateToLinkedPage( "NewAccountPage", parms );
-            }
-            else
-            {
-                string url = "~/NewAccount";
-
-                if ( !string.IsNullOrWhiteSpace( returnUrl ) )
-                {
-                    url += "?returnurl=" + returnUrl;
-                }
-
-                Response.Redirect( url, false );
-                Context.ApplicationInstance.CompleteRequest();
-            }
+            return GetAttributeValue( "LockedOutCaption" ).ResolveMergeFields( mergeFields );
         }
 
         /// <summary>
         /// Handles the Click event of the btnHelp control.
         /// </summary>
-        /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The <see cref="System.EventArgs"/> instance containing the event data.</param>
-        protected void btnHelp_Click( object sender, EventArgs e )
+        [BlockAction( "help" )]
+        public string BlockActionHelp()
+        {
+            return GetHelpPageUrl();
+        }
+
+        private string GetHelpPageUrl()
         {
             if ( !string.IsNullOrWhiteSpace( GetAttributeValue( "HelpPage" ) ) )
             {
-                NavigateToLinkedPage( "HelpPage" );
+                return LinkedPageUrl( "HelpPage" );
             }
             else
             {
-                Response.Redirect( "~/ForgotUserName", false );
-                Context.ApplicationInstance.CompleteRequest();
+                return "~/ForgotUserName";
             }
         }
 
         #endregion
 
         #region Methods
-
-        /// <summary>
-        /// Displays the error.
-        /// </summary>
-        /// <param name="message">The message.</param>
-        private void DisplayError( string message )
-        {
-            pnlMessage.Controls.Clear();
-            pnlMessage.Controls.Add( new LiteralControl( message ) );
-            pnlMessage.Visible = true;
-        }
-
-        /// <summary>
-        /// Logs in the user.
-        /// </summary>
-        /// <param name="userName">Name of the user.</param>
-        /// <param name="rememberMe">if set to <c>true</c> [remember me].</param>
-        private void LoginUser( string userName, bool rememberMe )
-        {
-            string redirectUrlSetting = LinkedPageUrl( "RedirectPage" );
-
-            UserLoginService.UpdateLastLogin( userName );
-
-            Authorization.SetAuthCookie( userName, rememberMe, false );
-
-            // TODO Move this redirect logic to the client
-            /*
-            if ( !string.IsNullOrWhiteSpace( returnUrl ) )
-            {
-                string redirectUrl = ExtensionMethods.ScrubEncodedStringForXSSObjects( returnUrl );
-                redirectUrl = Server.UrlDecode( redirectUrl );
-                Response.Redirect( redirectUrl, false );
-                Context.ApplicationInstance.CompleteRequest();
-            }
-            else if ( !string.IsNullOrWhiteSpace( redirectUrlSetting ) )
-            {
-                Response.Redirect( redirectUrlSetting, false );
-                Context.ApplicationInstance.CompleteRequest();
-            }
-            else
-            {
-                RockPage.Layout.Site.RedirectToDefaultPage();
-            }
-            */
-        }
 
         /// <summary>
         /// Sends the confirmation.

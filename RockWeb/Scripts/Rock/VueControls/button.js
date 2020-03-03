@@ -19,7 +19,7 @@
         }
     },
     template:
-`<a href="javascript:void(0);" class="btn" :disabled="isLoading" @click="handleClick">
+`<button class="btn" :disabled="isLoading" @click="handleClick">
     {{isLoading ? loadingText : label}}
-</a>`
+</button>`
 });

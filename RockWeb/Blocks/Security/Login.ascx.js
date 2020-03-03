@@ -1,4 +1,4 @@
-﻿window.Rock.RestBlocks['Blocks/Security/Login'] = function ({ rootElement, pageId, blockId }) {
+﻿window.Rock.RestBlocks['Blocks/Security/Login'] = function ({ rootElement, blockAction }) {
     const setCookie = function (cookie) {
         let expires = '';
 
@@ -39,13 +39,35 @@
             };
         },
         methods: {
-            submitLogin: async function() {
-                const url = '/api/blocks/action/' + pageId + '/' + blockId + '/action_login';
+            onHelpClick: async function () {
                 this.isLoading = true;
                 this.errorMessage = '';
 
                 try {
-                    const result = await this.$http.post(url, {
+                    const result = await blockAction('help');
+                    const url = result.data;
+
+                    if (!url) {
+                        this.errorMessage = 'An unknown error occurred communicating with the server';
+                    }
+                    else {
+                        // TODO make this force relative URLs (no absolute URLs)
+                        window.location.href = url;
+                    }
+                }
+                catch (e) {
+                    this.errorMessage = `An exception occurred: ${e}`;
+                }
+                finally {
+                    this.isLoading = false;
+                }
+            },
+            submitLogin: async function() {
+                this.isLoading = true;
+                this.errorMessage = '';
+
+                try {
+                    const result = await blockAction('login', {
                         username: this.username,
                         password: this.password,
                         rememberMe: this.rememberMe

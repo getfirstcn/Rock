@@ -119,7 +119,11 @@ namespace Rock.Web.UI
                         window.Rock.RestBlocks['{blockNamespace}']({{
                             rootElement: document.getElementById('{GetRootElementId()}'),
                             pageId: {BlockCache.PageId},
-                            blockId: {BlockCache.Id}
+                            blockId: {BlockCache.Id},
+                            blockAction: window.Rock.RestBlocks.blockActionFactory({{
+                                pageId: {BlockCache.PageId},
+                                blockId: {BlockCache.Id}
+                            }})
                         }});
                     </script>" );
             }
